@@ -2,7 +2,7 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
-from database.db_manager import conectar
+from database.db_manager import DatabaseManager
 
 class TelaServicos:
     def __init__(self, master):
@@ -17,7 +17,8 @@ class TelaServicos:
 
     def verificar_tabelas(self):
         try:
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             
             # Verifica e cria tabelas se não existirem
@@ -114,7 +115,8 @@ class TelaServicos:
 
     def carregar_pets(self):
         try:
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT p.id, p.nome, c.nome 
@@ -136,7 +138,8 @@ class TelaServicos:
         self.tree.delete(*self.tree.get_children())  # Limpa a tabela antes de recarregar
         
         try:
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT p.nome, s.tipo_servico, s.data, s.valor
@@ -176,7 +179,8 @@ class TelaServicos:
             # Obter ID do pet
             pet_id = self.pets[self.combo_pets.current()][0]
             
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO servicos (pet_id, tipo_servico, data, valor) VALUES (?, ?, ?, ?)",

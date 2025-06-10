@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
-from database.db_manager import conectar
+from database.db_manager import DatabaseManager
 from datetime import datetime
 from tkinter import simpledialog
 
@@ -9,14 +9,14 @@ class PontoDeVenda:
     def __init__(self, master):
         self.master = master
         self.master.title("PetShop PDV - Sistema de Vendas")
-        self.master.geometry("1200x800")
-        self.master.state('zoomed')  # Maximiza a janela
+        self.master.geometry("1400x800")
 
         # 1. Primeiro: Inicialize a conexão com o banco
         self.conn = None
         self.cursor = None
-        self.inicializar_banco()  # Método modificado
-        
+        self.inicializar_banco()
+        self.corrigir_estoque_nulo()
+
         # 2. Segundo: Configure os estilos
         self.configurar_estilos()
         
@@ -34,94 +34,17 @@ class PontoDeVenda:
     def inicializar_banco(self):
         """Método robusto para conexão com o banco"""
         try:
-            self.conn = sqlite3.connect("petshop.db")
-            self.conn.execute("PRAGMA foreign_keys = ON")
+            self.conn = DatabaseManager().conectar()
             self.cursor = self.conn.cursor()
-            
-            # Verificação crítica
+
             if not self.cursor:
                 raise sqlite3.Error("Falha ao criar cursor")
-                
-            self.criar_tabelas()  # Agora chamado aqui
-            
+
         except sqlite3.Error as e:
-            messagebox.showerror("Erro Fatal", 
-                               f"Falha na conexão com o banco:\n{str(e)}")
+            messagebox.showerror("Erro Fatal", f"Falha na conexão com o banco:\n{str(e)}")
             self.master.destroy()
             raise
-    
-    def criar_tabelas(self):
-        # Tabela de produtos
-        scripts = [
-        """CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo_barras TEXT UNIQUE,
-            nome TEXT NOT NULL,
-            preco REAL NOT NULL,
-            quantidade INTEGER NOT NULL DEFAULT 0,
-            categoria TEXT,
-            descricao TEXT,
-            data_cadastro TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-        """,
-            
-        # Tabela de clientes
-        
-        """CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            cpf TEXT UNIQUE,
-            telefone TEXT,
-            email TEXT,
-            endereco TEXT,
-            data_cadastro TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-        """,
-            
-        # Tabela de vendas
-        
-        """CREATE TABLE IF NOT EXISTS vendas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER,
-            data_venda TEXT NOT NULL,
-            total REAL NOT NULL,
-            forma_pagamento TEXT NOT NULL,
-            observacoes TEXT,
-            FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-        )
-        """,
-            
-        # Tabela de itens vendidos
-        
-        """CREATE TABLE IF NOT EXISTS itens_venda (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            venda_id INTEGER NOT NULL,
-            produto_id INTEGER NOT NULL,
-            quantidade INTEGER NOT NULL,
-            preco_unitario REAL NOT NULL,
-            subtotal REAL NOT NULL,
-            FOREIGN KEY (venda_id) REFERENCES vendas(id),
-            FOREIGN KEY (produto_id) REFERENCES produtos(id)
-        )
-        """
-        ]        
-        try:
-            for script in scripts:
-                self.cursor.execute(script)
-            self.conn.commit()
-            
-            # Verifica se a coluna codigo_barras existe, se não, adiciona
-            self.cursor.execute("PRAGMA table_info(produtos)")
-            colunas = [col[1] for col in self.cursor.fetchall()]
-            if 'codigo_barras' not in colunas:
-                self.cursor.execute("ALTER TABLE produtos ADD COLUMN codigo_barras TEXT")
-                self.conn.commit()
-                
-        except sqlite3.Error as e:
-            messagebox.showerror("Erro", f"Falha ao criar tabelas:\n{str(e)}")
-            return False
-        return True
-    
+
     def configurar_estilos(self):
         style = ttk.Style()
         style.theme_use('clam')
@@ -172,7 +95,7 @@ class PontoDeVenda:
         produtos_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 5))
         
         # Treeview de produtos
-        cols = ("ID", "Código", "Nome", "Preço", "Estoque", "Categoria")
+        cols = ("Código", "Nome", "Preço", "Estoque")
         self.tree_produtos = ttk.Treeview(
             produtos_frame, 
             columns=cols, 
@@ -183,27 +106,16 @@ class PontoDeVenda:
         
         for col in cols:
             self.tree_produtos.heading(col, text=col)
-            self.tree_produtos.column(col, width=100, anchor='center')
+            self.tree_produtos.column(col, width=80, anchor='center')
         
-        self.tree_produtos.column("Nome", width=200, anchor='w')
-        self.tree_produtos.column("Categoria", width=150, anchor='w')
+        self.tree_produtos.column("Nome", width=300, anchor='w')
         
         scroll_prod = ttk.Scrollbar(produtos_frame, orient='vertical', command=self.tree_produtos.yview)
         self.tree_produtos.configure(yscrollcommand=scroll_prod.set)
         
         self.tree_produtos.pack(side='left', fill='both', expand=True)
         scroll_prod.pack(side='right', fill='y')
-        
-        # Frame de botões de produtos
-        prod_btns_frame = ttk.Frame(produtos_frame)
-        prod_btns_frame.pack(fill='x', pady=(5, 0))
-        
-        btn_add = ttk.Button(prod_btns_frame, text="Adicionar (F2)", command=self.adicionar_ao_carrinho)
-        btn_add.pack(side='left', padx=2)
-        
-        btn_info = ttk.Button(prod_btns_frame, text="Detalhes (F3)", command=self.mostrar_detalhes)
-        btn_info.pack(side='left', padx=2)
-        
+                
         # Frame do carrinho
         carrinho_frame = ttk.LabelFrame(center_frame, text="Carrinho", padding=10)
         carrinho_frame.grid(row=0, column=1, sticky='nsew', padx=(5, 0))
@@ -236,12 +148,18 @@ class PontoDeVenda:
         btn_remover = ttk.Button(carrinho_btns_frame, text="Remover (Del)", command=self.remover_item)
         btn_remover.pack(side='left', padx=2)
         
-        btn_limpar = ttk.Button(carrinho_btns_frame, text="Limpar Carrinho", command=self.limpar_carrinho)
-        btn_limpar.pack(side='left', padx=2)
+        btn_add = ttk.Button(carrinho_btns_frame, text="Add(F2)", command=self.adicionar_ao_carrinho)
+        btn_add.pack(side='left', padx=2)
         
+        btn_info = ttk.Button(carrinho_btns_frame, text="Detalhes(F3)", command=self.mostrar_detalhes)
+        btn_info.pack(side='left', padx=2)
+
         btn_alterar_qtd = ttk.Button(carrinho_btns_frame, text="Alterar Qtd (F4)", command=self.alterar_quantidade)
         btn_alterar_qtd.pack(side='left', padx=2)
         
+        btn_limpar = ttk.Button(carrinho_btns_frame, text="Limpar Carrinho", command=self.limpar_carrinho)
+        btn_limpar.pack(side='left', padx=2)
+
         # Frame do total
         total_frame = ttk.Frame(carrinho_frame)
         total_frame.pack(fill='x', pady=10)
@@ -294,23 +212,32 @@ class PontoDeVenda:
         self.master.bind('<Delete>', lambda e: self.remover_item())
     
     def carregar_produtos(self, filtro=None):
-    #Carrega produtos usando apenas colunas existentes
         try:
             self.tree_produtos.delete(*self.tree_produtos.get_children())
             
-            # Consulta modificada sem codigo_barras
-            query = "SELECT id, nome, preco, quantidade, categoria FROM produtos WHERE quantidade > 0"
+            # Adicione a coluna descricao na consulta
+            query = """SELECT id, nome, preco, 
+                    COALESCE(quantidade, 0) as quantidade, 
+                    categoria,
+                    descricao 
+                    FROM produtos"""
             params = ()
             
             if filtro:
-                query += " AND (nome LIKE ? OR categoria LIKE ?)"
+                query += " WHERE (nome LIKE ? OR categoria LIKE ?)"
                 params = (f'%{filtro}%', f'%{filtro}%')
             
             self.cursor.execute(query, params)
             
-            # Ajuste os valores para corresponder às colunas selecionadas
             for row in self.cursor.fetchall():
-                self.tree_produtos.insert('', 'end', values=row)
+                # Garante que todos os valores estão corretos
+                row = list(row)
+                row[2] = float(row[2])  # preco
+                row[3] = int(row[3])    # quantidade
+                # Se descricao for None, substitui por string vazia
+                if row[5] is None:
+                    row[5] = ""
+                self.tree_produtos.insert('', 'end', values=row[:5])  # Mostra apenas as 5 primeiras colunas
                 
         except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Falha ao carregar produtos:\n{str(e)}")
@@ -381,9 +308,9 @@ class PontoDeVenda:
         
         campos = [
             ("Nome:", True),
+            ("pet:", False),
             ("CPF:", False),
             ("Telefone:", False),
-            ("Email:", False),
             ("Endereço:", False)
         ]
         
@@ -406,13 +333,13 @@ class PontoDeVenda:
             
             try:
                 self.cursor.execute("""
-                    INSERT INTO clientes (nome, cpf, telefone, email, endereco)
+                    INSERT INTO clientes (nome, pet, cpf, telefone, endereco)
                     VALUES (?, ?, ?, ?, ?)
                 """, (
                     dados['nome'],
+                    dados.get('pet', ''),
                     dados.get('cpf'),
                     dados.get('telefone'),
-                    dados.get('email'),
                     dados.get('endereço')
                 ))
                 
@@ -446,78 +373,129 @@ class PontoDeVenda:
         if not selected:
             messagebox.showwarning("Aviso", "Selecione um produto para adicionar ao carrinho.")
             return
-        
+
         produto = self.tree_produtos.item(selected)['values']
-        produto_id = produto[0]
-        
-        # Verifica se já está no carrinho
-        for item in self.carrinho:
-            if item['id'] == produto_id:
-                if self.alterar_quantidade_item(item, incremento=1):
-                    self.atualizar_carrinho()
+
+        try:
+            if not all(produto[:4]):  # Corrigido para os 4 primeiros campos
+                raise ValueError("Produto com dados incompletos.")
+
+            produto_id = int(produto[0])
+            nome = str(produto[1])  # Corrigido
+            preco = float(produto[2])  # Corrigido
+            estoque = int(produto[3]) if produto[3] not in (None, '', 'None') else 0  # Corrigido
+
+            # Já no carrinho? Verifica se ainda há estoque para adicionar mais
+            for item in self.carrinho:
+                if item['id'] == produto_id:
+                    if item['quantidade'] + 1 > estoque:
+                        messagebox.showwarning(
+                            "Estoque insuficiente",
+                            f"Não há estoque suficiente para adicionar mais unidades de '{nome}'."
+                        )
+                        return
+                    if self.alterar_quantidade_item(item, incremento=1):
+                        self.atualizar_carrinho()
+                    return
+
+            # Verifica se há estoque suficiente para adicionar o produto novo
+            if estoque <= 0:
+                messagebox.showwarning("Estoque insuficiente", f"O produto '{nome}' está sem estoque.")
                 return
-        
-        # Adiciona novo item
-        novo_item = {
-            'id': produto_id,
-            'nome': produto[2],
-            'preco': produto[3],
-            'quantidade': 1,
-            'estoque': produto[4]
-        }
-        
-        self.carrinho.append(novo_item)
-        self.atualizar_carrinho()
+
+            novo_item = {
+                'id': produto_id,
+                'nome': nome,
+                'preco': preco,
+                'quantidade': 1,
+                'estoque': estoque
+            }
+
+            self.carrinho.append(novo_item)
+            self.atualizar_carrinho()
+
+        except (ValueError, TypeError) as e:
+            messagebox.showerror("Erro", f"Dados do produto inválidos: {str(e)}")
+
+
+    def corrigir_estoque_nulo(self):
+        """Corrige registros com estoque nulo no banco de dados"""
+        try:
+            self.cursor.execute("UPDATE produtos SET quantidade = 0 WHERE quantidade IS NULL")
+            self.conn.commit()
+        except sqlite3.Error as e:
+            messagebox.showwarning("Aviso", f"Não foi possível corrigir estoques nulos: {str(e)}")        
     
     def alterar_quantidade_item(self, item, incremento=None, nova_quantidade=None):
-        if nova_quantidade is not None:
-            if nova_quantidade <= 0:
-                return False
+        """Função auxiliar para alterar quantidade de um item com tratamento robusto"""
+        try:
+            # Conversão segura dos valores
+            estoque = int(item.get('estoque', 0))
+            quantidade_atual = int(item.get('quantidade', 0))
             
-            if nova_quantidade > item['estoque']:
-                messagebox.showwarning("Estoque", f"Quantidade indisponível! Máximo: {item['estoque']}")
-                return False
-            
-            item['quantidade'] = nova_quantidade
-            return True
-        
-        elif incremento is not None:
-            nova_qtd = item['quantidade'] + incremento
-            
-            if nova_qtd <= 0:
-                return False
+            if nova_quantidade is not None:
+                nova_quantidade = int(nova_quantidade)
+                if nova_quantidade <= 0:
+                    return False
                 
-            if nova_qtd > item['estoque']:
-                messagebox.showwarning("Estoque", f"Quantidade indisponível! Máximo: {item['estoque']}")
-                return False
+                if estoque > 0 and nova_quantidade > estoque:
+                    messagebox.showwarning("Estoque", f"Quantidade indisponível! Máximo: {estoque}")
+                    return False
                 
-            item['quantidade'] = nova_qtd
-            return True
+                item['quantidade'] = nova_quantidade
+                return True
+            
+            elif incremento is not None:
+                incremento = int(incremento)
+                nova_qtd = quantidade_atual + incremento
+                
+                if nova_qtd <= 0:
+                    return False
+                    
+                if estoque > 0 and nova_qtd > estoque:
+                    messagebox.showwarning("Estoque", f"Quantidade indisponível! Máximo: {estoque}")
+                    return False
+                    
+                item['quantidade'] = nova_qtd
+                return True
+            
+            return False
         
-        return False
-    
+        except (ValueError, TypeError) as e:
+            messagebox.showerror("Erro", f"Valor inválido na quantidade: {str(e)}")
+            return False
+
     def alterar_quantidade(self):
+        """Função principal para alterar quantidade via diálogo com tratamento completo"""
         selected = self.tree_carrinho.focus()
         if not selected:
             messagebox.showwarning("Aviso", "Selecione um item do carrinho para alterar a quantidade.")
             return
         
-        index = self.tree_carrinho.index(selected)
-        item = self.carrinho[index]
+        try:
+            index = self.tree_carrinho.index(selected)
+            item = self.carrinho[index]
+            
+            # Garantir tipos corretos
+            estoque = int(item.get('estoque', 0))
+            quantidade_atual = int(item.get('quantidade', 1))
+            
+            nova_qtd = simpledialog.askinteger(
+                "Alterar Quantidade",
+                f"Nova quantidade para {item.get('nome', 'Produto')}:",
+                parent=self.master,
+                minvalue=1,
+                maxvalue=estoque if estoque > 0 else None,
+                initialvalue=quantidade_atual
+            )
+            
+            if nova_qtd is not None and nova_qtd != quantidade_atual:
+                if self.alterar_quantidade_item(item, nova_quantidade=nova_qtd):
+                    self.atualizar_carrinho()
         
-        nova_qtd = simpledialog.askinteger(
-            "Alterar Quantidade",
-            f"Nova quantidade para {item['nome']}:",
-            parent=self.master,
-            minvalue=1,
-            maxvalue=item['estoque'],
-            initialvalue=item['quantidade']
-        )
-        
-        if nova_qtd and nova_qtd != item['quantidade']:
-            self.alterar_quantidade_item(item, nova_quantidade=nova_qtd)
-            self.atualizar_carrinho()
-    
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao alterar quantidade: {str(e)}")
+
     def remover_item(self):
         selected = self.tree_carrinho.focus()
         if not selected:
@@ -538,20 +516,28 @@ class PontoDeVenda:
     
     def atualizar_carrinho(self):
         self.tree_carrinho.delete(*self.tree_carrinho.get_children())
-        
         total = 0.0
+        
         for item in self.carrinho:
-            subtotal = item['preco'] * item['quantidade']
-            self.tree_carrinho.insert('', 'end', values=(
-                item['nome'],
-                f"R$ {item['preco']:.2f}",
-                item['quantidade'],
-                f"R$ {subtotal:.2f}"
-            ))
-            total += subtotal
+            try:
+                # Conversão segura de valores
+                preco = float(item.get('preco', 0))
+                quantidade = int(item.get('quantidade', 0))
+                subtotal = preco * quantidade
+                total += subtotal
+                
+                self.tree_carrinho.insert('', 'end', values=(
+                    item.get('nome', ''),
+                    f"R$ {preco:.2f}",
+                    quantidade,
+                    f"R$ {subtotal:.2f}"
+                ))
+            except (ValueError, TypeError) as e:
+                messagebox.showerror("Erro", f"Item inválido no carrinho: {str(e)}")
+                continue
         
         self.lbl_total.config(text=f"R$ {total:.2f}")
-    
+        
     def mostrar_detalhes(self):
         selected = self.tree_produtos.focus()
         if not selected:
@@ -561,19 +547,32 @@ class PontoDeVenda:
         produto = self.tree_produtos.item(selected)['values']
         produto_id = produto[0]
         
-        self.cursor.execute("SELECT descricao FROM produtos WHERE id = ?", (produto_id,))
-        descricao = self.cursor.fetchone()[0] or "Sem descrição cadastrada."
-        
-        messagebox.showinfo(
-            "Detalhes do Produto",
-            f"ID: {produto_id}\n"
-            f"Nome: {produto[2]}\n"
-            f"Preço: R$ {produto[3]:.2f}\n"
-            f"Estoque: {produto[4]}\n"
-            f"Categoria: {produto[5]}\n\n"
-            f"Descrição:\n{descricao}",
-            parent=self.master
-        )
+        try:
+            # Busca todas as informações do produto, incluindo descrição
+            self.cursor.execute("""
+                SELECT id, nome, preco, COALESCE(quantidade, 0), 
+                    categoria, COALESCE(descricao, 'Sem descrição cadastrada') 
+                FROM produtos WHERE id = ?
+            """, (produto_id,))
+            
+            produto_completo = self.cursor.fetchone()
+            
+            if produto_completo:
+                messagebox.showinfo(
+                    "Detalhes do Produto",
+                    f"ID: {produto_completo[0]}\n"
+                    f"Nome: {produto_completo[1]}\n"
+                    f"Preço: R$ {float(produto_completo[2]):.2f}\n"
+                    f"Estoque: {int(produto_completo[3])}\n"
+                    f"Categoria: {produto_completo[4]}\n\n"
+                    f"Descrição:\n{produto_completo[5]}",
+                    parent=self.master
+                )
+            else:
+                messagebox.showerror("Erro", "Produto não encontrado no banco de dados.")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao obter detalhes:\n{str(e)}")
     
     def finalizar_venda(self):
         if not self.carrinho:

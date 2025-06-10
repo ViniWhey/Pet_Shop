@@ -37,14 +37,14 @@ class TelaPrincipal:
                             command=self.abrir_Pdv)
         btn_pets.grid(row=0, column=0, pady=5, padx=20)
         
-        btn_clientes = tk.Button(button_frame, 
-                               text="Gerenciar Clientes", 
-                               width=25, 
-                               bg=button_bg,
-                               fg=button_fg,
-                               font=button_font,
-                               command=self.abrir_clientes)
-        btn_clientes.grid(row=1, column=0, pady=5, padx=10)
+        btn_produtos = tk.Button(button_frame, 
+                                text="Controle de Produtos", 
+                                width=25,
+                                bg=button_bg,
+                                fg=button_fg,
+                                font=button_font,
+                                command=self.abrir_produtos)
+        btn_produtos.grid(row=1, column=0, pady=5, padx=10)
 
         btn_servicos = tk.Button(button_frame, 
                                 text="Serviços Realizados", 
@@ -56,13 +56,13 @@ class TelaPrincipal:
         btn_servicos.grid(row=2, column=0, pady=5, padx=10)
 
         btn_produtos = tk.Button(button_frame, 
-                                text="Controle de Produtos", 
+                                text="Dashboard", 
                                 width=25,
                                 bg=button_bg,
                                 fg=button_fg,
                                 font=button_font,
-                                command=self.abrir_produtos)
-        btn_produtos.grid(row=3, column=0, pady=5, padx=10)
+                                command=self.abrir_dashboard)
+        btn_produtos.grid(row=4, column=0, pady=5, padx=10)
 
         # Botão Sair
         btn_sair = tk.Button(self.master, 
@@ -87,11 +87,6 @@ class TelaPrincipal:
         nova_janela = tk.Toplevel(self.master)
         PontoDeVenda(nova_janela)
 
-    def abrir_clientes(self):
-        from ui.tela_clientes import TelaClientes
-        nova_janela = tk.Toplevel(self.master)
-        TelaClientes(nova_janela)
-
     def abrir_servicos(self):
         from ui.tela_servicos import TelaServicos
         nova_janela = tk.Toplevel(self.master)
@@ -101,3 +96,8 @@ class TelaPrincipal:
         from ui.tela_produtos import TelaProdutos
         nova_janela = tk.Toplevel(self.master)
         TelaProdutos(nova_janela)
+    
+    def abrir_dashboard(self):
+        from dashboard.dash import TelaDashboard
+        nova_janela = tk.Toplevel(self.master)
+        TelaDashboard(nova_janela)

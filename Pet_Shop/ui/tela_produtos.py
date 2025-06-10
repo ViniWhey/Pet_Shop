@@ -1,12 +1,15 @@
 # ui/tela_produtos.py
+import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database.db_manager import conectar
+from database.db_manager import DatabaseManager
+from pathlib import Path
 
 class TelaProdutos:
     def __init__(self, master):
         self.master = master
-        self.master.title("Controle de Produtos")
+        self.master.title("ESTOQUE DE PRODUTOS")
+        self.master.geometry("1100x600")
         self.configurar_estilos()
         self.criar_widgets()
         self.carregar_produtos()
@@ -45,29 +48,45 @@ class TelaProdutos:
         frame_form.pack(fill=tk.X, padx=5, pady=5)
         
         # Campos de entrada
-        tk.Label(frame_form, text="Nome:").grid(row=0, column=0, sticky='e')
+        tk.Label(frame_form, text="codigo de barras:").grid(row=0, column=0, sticky='e')
+        self.entry_codigo_barras = tk.Entry(frame_form, width=45)
+        self.entry_codigo_barras.grid(row=0, column=1, padx=5)
+
+        tk.Label(frame_form, text="Nome do Produto:").grid(row=0, column=1, sticky='e') 
         self.entry_nome = tk.Entry(frame_form, width=30)
-        self.entry_nome.grid(row=0, column=1, padx=5)
+        self.entry_nome.grid(row=0, column=2, padx=5)
         
         tk.Label(frame_form, text="Preço:").grid(row=0, column=2, sticky='e')
         self.entry_preco = tk.Entry(frame_form, width=10)
         self.entry_preco.grid(row=0, column=3, padx=5)
         
-        tk.Label(frame_form, text="Estoque:").grid(row=0, column=4, sticky='e')
+        tk.Label(frame_form, text="Quantidade:").grid(row=0, column=4, sticky='e')
         self.entry_quantidade = tk.Entry(frame_form, width=10)
         self.entry_quantidade.grid(row=0, column=5, padx=5)
         
         # Configurar expansão das colunas
         frame_form.columnconfigure(1, weight=1)
         
+        #buscar produtos
+        tk.Label(frame_form, text="Buscar:").grid(row=0, column=7, sticky='e')
+        self.entry_busca = tk.Entry(frame_form, width=20)
+        self.entry_busca.grid(row=0, column=8, padx=5)
+        
+        self.btn_buscar = tk.Button(frame_form, text="Buscar", command=self.buscar_produtos)
+        self.btn_buscar.grid(row=0, column=9, padx=5)
+        
+        # Configurar expansão das colunas
+        frame_form.columnconfigure(8, weight=1)  # Expande a coluna de busca
+        frame_form.columnconfigure(9, weight=0)  # Não expande o botão de busca
+        
         # Botão Salvar (será reconfigurado durante edição)
         self.btn_salvar = tk.Button(frame_form, text="salvar", command=self.salvar_produto)
-        self.btn_salvar.grid(row=0, columnspan=6, padx=10)    
+        self.btn_salvar.grid(row=0, column=6, padx=10)    
 
         # (com IDs):
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Nome", "Preco", "Estoque"),  # Adicionada coluna ID
+            columns=("ID", "codigo_barras", "Nome", "Preco", "Quantidade"),  # Adicionada coluna ID
             show="headings"  # Mostra os cabeçalhos
         )
         
@@ -76,12 +95,17 @@ class TelaProdutos:
 
         # Configurar cabeçalhos (nomes das colunas)
         self.tree.heading("ID", text="ID")
+        self.tree.heading("codigo_barras", text="Código de Barras")
         self.tree.heading("Nome", text="Nome")
         self.tree.heading("Preco", text="Preço")
-        self.tree.heading("Estoque", text="Estoque")
+        self.tree.heading("Quantidade", text="Quantidade")
 
         # Configurar largura da coluna ID (opcional)
         self.tree.column("ID", width=50, stretch=False)  # Largura fixa de 50 pixels
+        self.tree.column("codigo_barras", width=75, stretch=True)  # Largura expansível
+        self.tree.column("Nome", width=200, stretch=True)
+        self.tree.column("Preco", width=100, stretch=False)  # Largura fixa de 100 pixels
+        self.tree.column("Quantidade", width=100, stretch=False)
 
         self.tree.pack(fill=tk.BOTH, expand=True)
 
@@ -107,6 +131,7 @@ class TelaProdutos:
     def salvar_produto(self):
         """Salva ou atualiza um produto (adaptado para pegar valores dos campos)"""
         try:
+            codigo_barras = self.entry_codigo_barras.get().strip()
             nome = self.entry_nome.get().strip()
             preco = float(self.entry_preco.get())
             quantidade = int(self.entry_quantidade.get())
@@ -114,21 +139,22 @@ class TelaProdutos:
             if not nome or preco <= 0 or quantidade < 0:
                 raise ValueError("Dados inválidos")
                 
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             
             # Verifica se é uma edição (botão estava como "Atualizar")
             if self.btn_salvar['text'] == "Atualizar":
                 item_id = self.tree.item(self.tree.selection())['values'][0]
                 cursor.execute(
-                    "UPDATE produtos SET nome=?, preco=?, quantidade=? WHERE id=?",
-                    (nome, preco, quantidade, item_id)
+                    "UPDATE produtos SET codigo_barras=?, nome=?, preco=?, quantidade=? WHERE id=?",
+                    (codigo_barras, nome, preco, quantidade, item_id)
                 )
                 msg = "Produto atualizado!"
             else:
                 cursor.execute(
-                    "INSERT INTO produtos (nome, preco, quantidade) VALUES (?, ?, ?)",
-                    (nome, preco, quantidade)
+                    "INSERT INTO produtos (codigo_barras, nome, preco, quantidade) VALUES (?, ?, ?, ?)",
+                    (codigo_barras, nome, preco, quantidade)
                 )
                 msg = "Produto adicionado!"
                 
@@ -151,7 +177,8 @@ class TelaProdutos:
 
         conn = None
         try:
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE produtos SET nome=?, preco=?, quantidade=? WHERE id=?",
@@ -187,9 +214,10 @@ class TelaProdutos:
             # Preenche o formulário FIXO
             self.limpar_campos()
 
-            self.entry_nome.insert(0, dados[1])
-            self.entry_preco.insert(0, dados[2])
-            self.entry_quantidade.insert(0, dados[3])
+            self.entry_codigo_barras.insert(0, dados[1])
+            self.entry_nome.insert(0, dados[2])
+            self.entry_preco.insert(0, dados[3])
+            self.entry_quantidade.insert(0, dados[4])
             
             # Altera o botão para "Atualizar"
             self.btn_salvar.config(
@@ -201,26 +229,28 @@ class TelaProdutos:
             messagebox.showerror("Erro", f"Falha na edição: {str(e)}")
         
     def carregar_produtos(self):
-        """Atualiza a Treeview com os dados do banco"""
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-            
+        self.tree.delete(*self.tree.get_children())
         try:
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM produtos")
-            
-            if not cursor.fetchall():
-                self.tree.insert("", tk.END, values=("Nenhum produto cadastrado", "", "", ""))
+
+            cursor.execute("SELECT id, codigo_barras, nome, preco, quantidade FROM produtos")
+            produtos = cursor.fetchall()
+
+            if not produtos:
+                self.tree.insert("", tk.END, values=("Nenhum produto cadastrado", "", "", "", ""))
             else:
-                cursor.execute("SELECT * FROM produtos")
-                for produto in cursor.fetchall():
-                    self.tree.insert("", tk.END, values=produto)
+                for produto in produtos:
+                    # Converte para tupla explícita, se necessário
+                    self.tree.insert("", tk.END, values=tuple(produto))
+
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao carregar produtos:\n{str(e)}")
         finally:
             if 'conn' in locals():
                 conn.close()
+
 
     def validar_preco(self, preco_str):
         try:
@@ -241,7 +271,8 @@ class TelaProdutos:
             
         try:
             item_id = self.tree.item(selecionado)['values'][0]
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM produtos WHERE id=?", (item_id,))
             conn.commit()
@@ -254,11 +285,35 @@ class TelaProdutos:
                 conn.close()
     
     def limpar_campos(self):
-        """Reseta o formulário e o botão Salvar"""
-        for entry in [self.entry_nome, self.entry_preco, self.entry_quantidade]:
+        for entry in [self.entry_codigo_barras,
+                    self.entry_nome,
+                    self.entry_preco,
+                    self.entry_quantidade]:
             entry.delete(0, tk.END)
-        
-        self.btn_salvar.config(
-            text="Salvar",
-            bg="#4CAF50"  # Verde padrão
-        )
+        self.btn_salvar.config(text="Salvar", bg="#4CAF50")
+
+    def buscar_produtos(self):
+        termo = self.entry_busca.get().strip()
+        if termo:
+            query = """
+            SELECT id, codigo_barras, nome, preco, quantidade
+            FROM produtos
+            WHERE nome LIKE ? OR codigo_barras LIKE ?
+            """
+            params = (f'%{termo}%', f'%{termo}%')
+        else:
+            query = "SELECT id, codigo_barras, nome, preco, quantidade FROM produtos"
+            params = ()
+
+        caminho_db = Path(__file__).resolve().parent.parent / "database" / "petshop.db"
+        conexao = sqlite3.connect(caminho_db)
+        cursor = conexao.cursor()
+        cursor.execute(query, params)
+        resultados = cursor.fetchall()
+        conexao.close()
+
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        for linha in resultados:
+            self.tree.insert("", "end", values=linha)

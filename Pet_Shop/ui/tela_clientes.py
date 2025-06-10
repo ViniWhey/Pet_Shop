@@ -1,7 +1,7 @@
 import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database.db_manager import conectar
+from database.db_manager import DatabaseManager
 
 class TelaClientes:
     def __init__(self, master):
@@ -34,8 +34,9 @@ class TelaClientes:
         # Labels e Entries
         campos = [
             ("Nome*:", 'nome'),
-            ("Telefone:", 'telefone'),
             ("Pet:", 'pet'),
+            ("CPF:", 'cpf'),
+            ("Telefone:", 'telefone'),
             ("Endereço:", 'endereco')
         ]
         
@@ -63,7 +64,7 @@ class TelaClientes:
         scroll_y = ttk.Scrollbar(frame_lista)
         scroll_y.pack(side='right', fill='y')
 
-        self.tree = ttk.Treeview(frame_lista, columns=('ID', 'Nome', 'Telefone', 'Pet', 'Endereço'),
+        self.tree = ttk.Treeview(frame_lista, columns=('ID', 'Nome', 'Pet','cpf', 'Telefone', 'Endereço'),
                                 show='headings', yscrollcommand=scroll_y.set,
                                 selectmode='browse')
         
@@ -71,8 +72,9 @@ class TelaClientes:
         colunas = [
             ('ID', 50, 'center'),
             ('Nome', 200, 'w'),
-            ('Telefone', 120, 'center'),
             ('Pet', 150, 'w'),
+            ('CPF', 120, 'center'),
+            ('Telefone', 120, 'center'),
             ('Endereço', 300, 'w')
         ]
         
@@ -99,24 +101,31 @@ class TelaClientes:
 
     def carregar_clientes(self):
         """Carrega todos os clientes do banco de dados na treeview"""
-        conn = conectar()
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, nome, telefone, pet, endereco FROM cliente ORDER BY nome""")
-            
-            # Limpar treeview
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+            with DatabaseManager.conectar() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT id, nome, pet, cpf, telefone, endereco 
+                    FROM clientes 
+                    ORDER BY nome
+                """)
                 
-            # Preencher com novos dados
-            for row in cursor.fetchall():
-                self.tree.insert('', 'end', values=row)
-                
+                # Limpar treeview
+                for item in self.tree.get_children():
+                    self.tree.delete(item)
+                    
+                # Preencher com novos dados
+                for row in cursor.fetchall():
+                    self.tree.insert('', 'end', values=row)
+                    
+        except sqlite3.Error as e:
+            messagebox.showerror("Erro", 
+                            f"Falha ao carregar clientes:\n{str(e)}", 
+                            parent=self.master)
         except Exception as e:
-            messagebox.showerror("Erro", f"Falha ao carregar clientes:\n{str(e)}", parent=self.master)
-        finally:
-            conn.close()
+            messagebox.showerror("Erro inesperado", 
+                            f"Ocorreu um erro inesperado:\n{str(e)}", 
+                            parent=self.master)
 
     def validar_campos(self):
         """Valida se os campos obrigatórios foram preenchidos"""
@@ -140,21 +149,24 @@ class TelaClientes:
 
         dados = {
             'nome': self.entries['nome'].get().strip(),
-            'telefone': self.entries['telefone'].get().strip(),
             'pet': self.entries['pet'].get().strip(),
+            'cpf': self.entries.get('cpf', '').get().strip(),
+            'telefone': self.entries['telefone'].get().strip(),
             'endereco': self.entries.get('endereco', '').get().strip() if 'endereco' in self.entries else ''
         }
 
-        conn = conectar()
+        db = DatabaseManager()
+        conn = db.conectar()
         try:
             cursor = conn.cursor()
             conn.execute("BEGIN TRANSACTION")
 
             # 1. Insere na tabela clientes (com campo pet simples)
             cursor.execute("""
-                INSERT INTO cliente (nome, telefone, pet, endereco)
-                VALUES (?, ?, ?, ?)
-            """, (dados['nome'], dados['telefone'], dados['pet'], dados['endereco']))
+                INSERT INTO clientes (nome, pet, cpf, telefone, endereco)
+                VALUES (?, ?, ?, ?, ?)
+            """, (dados['nome'], dados['pet'], dados['cpf'], dados['telefone'], dados['endereco']))
+            # Obtém o ID do cliente recém-inserido
 
             cliente_id = cursor.lastrowid
 
@@ -199,8 +211,9 @@ class TelaClientes:
         campos_edicao = {}
         for i, (label, name) in enumerate([
             ("Nome*:", 'nome'),
-            ("Telefone:", 'telefone'),
             ("Pet:", 'pet'),
+            ("CPF:", 'cpf'),
+            ("Telefone:", 'telefone'),
             ("Endereço:", 'endereco')
         ]):
             ttk.Label(frame_edicao, text=label).grid(row=i, column=0, sticky='e', padx=5, pady=5)
@@ -227,15 +240,15 @@ class TelaClientes:
         if not dados['nome']:
             messagebox.showwarning("Aviso", "O campo Nome é obrigatório!", parent=janela)
             return
-            
-        conn = conectar()
+        db = DatabaseManager()    
+        conn = db.conectar()
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE cliente 
-                SET nome = ?, telefone = ?, pet = ?, endereco = ?
+                UPDATE clientes 
+                SET nome = ?, pet = ?, cpf = ?, telefone = ?, endereco = ?
                 WHERE id = ?
-            """, (dados['nome'], dados['telefone'], dados['pet'], dados['endereco'], cliente_id))
+            """, (dados['nome'], dados['pet'], dados['cpf'], dados['telefone'], dados['endereco'], cliente_id))
             
             conn.commit()
             messagebox.showinfo("Sucesso", "Cliente atualizado com sucesso!", parent=janela)
@@ -258,10 +271,11 @@ class TelaClientes:
         cliente_id, nome = item['values'][0], item['values'][1]
         
         if messagebox.askyesno("Confirmar", f"Excluir o cliente {nome}?", parent=self.master):
-            conn = conectar()
+            db = DatabaseManager()
+            conn = db.conectar()
             try:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM cliente WHERE id = ?", (cliente_id,))
+                cursor.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
                 conn.commit()
                 messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!", parent=self.master)
                 self.carregar_clientes()

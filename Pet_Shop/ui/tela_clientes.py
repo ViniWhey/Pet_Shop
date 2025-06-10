@@ -1,3 +1,4 @@
+import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 from database.db_manager import conectar
@@ -102,7 +103,7 @@ class TelaClientes:
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, nome, telefone, pet, endereco FROM clientes ORDER BY nome""")
+                SELECT id, nome, telefone, pet, endereco FROM cliente ORDER BY nome""")
             
             # Limpar treeview
             for item in self.tree.get_children():
@@ -126,32 +127,51 @@ class TelaClientes:
         return True
 
     def salvar_cliente(self):
-        """Salva um novo cliente ou atualiza um existente"""
+        """Salva cliente com pet em ambas as tabelas (clientes e pets)"""
         if not self.validar_campos():
             return
-            
+
+        # Verifica campos mínimos necessários
+        campos_necessarios = ['nome', 'telefone', 'pet']
+        for campo in campos_necessarios:
+            if campo not in self.entries:
+                messagebox.showerror("Erro", f"Campo '{campo}' não encontrado!", parent=self.master)
+                return
+
         dados = {
             'nome': self.entries['nome'].get().strip(),
             'telefone': self.entries['telefone'].get().strip(),
             'pet': self.entries['pet'].get().strip(),
-            'endereco': self.entries['endereco'].get().strip()
+            'endereco': self.entries.get('endereco', '').get().strip() if 'endereco' in self.entries else ''
         }
-        
+
         conn = conectar()
         try:
             cursor = conn.cursor()
+            conn.execute("BEGIN TRANSACTION")
+
+            # 1. Insere na tabela clientes (com campo pet simples)
             cursor.execute("""
-                INSERT INTO clientes (nome, telefone, pet, endereco)
+                INSERT INTO cliente (nome, telefone, pet, endereco)
                 VALUES (?, ?, ?, ?)
             """, (dados['nome'], dados['telefone'], dados['pet'], dados['endereco']))
-            
+
+            cliente_id = cursor.lastrowid
+
+            # 2. Insere na tabela pets (com estrutura completa)
+            cursor.execute("""
+                INSERT INTO pets (nome, dono_id)
+                VALUES (?, ?)
+            """, (dados['pet'], cliente_id))
+
             conn.commit()
-            messagebox.showinfo("Sucesso", "Cliente salvo com sucesso!", parent=self.master)
+            messagebox.showinfo("Sucesso", "Cliente e pet salvos com sucesso!", parent=self.master)
             self.limpar_campos()
             self.carregar_clientes()
-            
-        except Exception as e:
-            messagebox.showerror("Erro", f"Falha ao salvar cliente:\n{str(e)}", parent=self.master)
+
+        except sqlite3.Error as e:
+            conn.rollback()
+            messagebox.showerror("Erro", f"Falha ao salvar:\n{str(e)}", parent=self.master)
         finally:
             conn.close()
 
@@ -212,7 +232,7 @@ class TelaClientes:
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE clientes 
+                UPDATE cliente 
                 SET nome = ?, telefone = ?, pet = ?, endereco = ?
                 WHERE id = ?
             """, (dados['nome'], dados['telefone'], dados['pet'], dados['endereco'], cliente_id))
@@ -241,7 +261,7 @@ class TelaClientes:
             conn = conectar()
             try:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+                cursor.execute("DELETE FROM cliente WHERE id = ?", (cliente_id,))
                 conn.commit()
                 messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!", parent=self.master)
                 self.carregar_clientes()

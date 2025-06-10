@@ -25,27 +25,25 @@ def criar_banco():
         
         # Tabela de clientes (CORREÇÃO: vírgula adicionada após email TEXT)
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
+        CREATE TABLE IF NOT EXISTS cliente (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
             telefone TEXT,
-            pet TEXT NOT NULL,
+            pet TEXT,
             endereco TEXT           
         )
         """)
 
-        # Tabela de pets
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS pets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
+            dono_id INTEGER NOT NULL,
             especie TEXT,
             raca TEXT,
-            idade INTEGER,
-            dono_id INTEGER,
-            FOREIGN KEY (dono_id) REFERENCES clientes(id) ON DELETE CASCADE
+            FOREIGN KEY (dono_id) REFERENCES clientes(id)
         )
-        """)
+    """)
 
         # Tabela de produtos (CORREÇÃO: nome da tabela em português para consistência)
         cursor.execute("""

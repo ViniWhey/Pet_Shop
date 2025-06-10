@@ -121,13 +121,13 @@ class TelaProdutos:
             if self.btn_salvar['text'] == "Atualizar":
                 item_id = self.tree.item(self.tree.selection())['values'][0]
                 cursor.execute(
-                    "UPDATE products SET nome=?, preco=?, quantidade=? WHERE id=?",
+                    "UPDATE produtos SET nome=?, preco=?, quantidade=? WHERE id=?",
                     (nome, preco, quantidade, item_id)
                 )
                 msg = "Produto atualizado!"
             else:
                 cursor.execute(
-                    "INSERT INTO products (nome, preco, quantidade) VALUES (?, ?, ?)",
+                    "INSERT INTO produtos (nome, preco, quantidade) VALUES (?, ?, ?)",
                     (nome, preco, quantidade)
                 )
                 msg = "Produto adicionado!"
@@ -243,7 +243,7 @@ class TelaProdutos:
             item_id = self.tree.item(selecionado)['values'][0]
             conn = conectar()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM products WHERE id=?", (item_id,))
+            cursor.execute("DELETE FROM produtos WHERE id=?", (item_id,))
             conn.commit()
             self.carregar_produtos()
             messagebox.showinfo("Sucesso", "Produto excluído!")

@@ -28,15 +28,6 @@ class TelaPrincipal:
         button_frame.pack(pady=10)
 
         # Botões principais
-        btn_clientes = tk.Button(button_frame, 
-                               text="Gerenciar Clientes", 
-                               width=25, 
-                               bg=button_bg,
-                               fg=button_fg,
-                               font=button_font,
-                               command=self.abrir_clientes)
-        btn_clientes.grid(row=0, column=0, pady=5, padx=10)
-
         btn_pets = tk.Button(button_frame, 
                             text="Ponto de Venda", 
                             width=25,
@@ -44,7 +35,16 @@ class TelaPrincipal:
                             fg=button_fg,
                             font=button_font,
                             command=self.abrir_Pdv)
-        btn_pets.grid(row=1, column=0, pady=5, padx=10)
+        btn_pets.grid(row=0, column=0, pady=5, padx=20)
+        
+        btn_clientes = tk.Button(button_frame, 
+                               text="Gerenciar Clientes", 
+                               width=25, 
+                               bg=button_bg,
+                               fg=button_fg,
+                               font=button_font,
+                               command=self.abrir_clientes)
+        btn_clientes.grid(row=1, column=0, pady=5, padx=10)
 
         btn_servicos = tk.Button(button_frame, 
                                 text="Serviços Realizados", 
@@ -82,16 +82,15 @@ class TelaPrincipal:
                                  bg='#e0e0e0')
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+    def abrir_Pdv(self):
+        from pdv.Pdv import PontoDeVenda
+        nova_janela = tk.Toplevel(self.master)
+        PontoDeVenda(nova_janela)
+
     def abrir_clientes(self):
         from ui.tela_clientes import TelaClientes
         nova_janela = tk.Toplevel(self.master)
         TelaClientes(nova_janela)
-        
-
-    def abrir_Pdv(self):
-        from ui.Pdv import PontoDeVenda
-        nova_janela = tk.Toplevel(self.master)
-        PontoDeVenda(nova_janela)
 
     def abrir_servicos(self):
         from ui.tela_servicos import TelaServicos

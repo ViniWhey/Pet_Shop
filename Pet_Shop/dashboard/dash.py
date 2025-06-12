@@ -10,29 +10,39 @@ class TelaDashboard:
     def __init__(self, master):
         self.master = master
         self.master.title("Dashboard do Pet Shop - Análise de Vendas")
-        self.master.geometry("1200x800")
-        self.master.state('zoomed')  # Maximiza a janela
-        
-        # Configurações de cores e fontes
-        self.bg_color = '#f0f8ff'  # Azul claro
-        self.button_bg = '#4682b4'  # Azul aço
+        self.master.state('zoomed')
+
+        # Cores e fontes
+        self.bg_color = '#181c2f'
+        self.card_bg = '#23284a'
+        self.button_bg = '#4682b4'
         self.button_fg = 'white'
         self.button_font = ('Arial', 12, 'bold')
         self.title_font = ('Arial', 18, 'bold')
-        
+        self.metric_font = ('Arial', 16, 'bold')
+        self.metric_fg = '#fff'
+
         # Frame principal
         main_frame = tk.Frame(self.master, bg=self.bg_color)
         main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Título
-        title_frame = tk.Frame(main_frame, bg=self.bg_color)
-        title_frame.pack(fill=tk.X, pady=10)
-        
-        title_label = tk.Label(title_frame, text="Dashboard de Vendas - Pet Shop", 
-                             bg=self.bg_color, font=self.title_font)
-        title_label.pack(side=tk.LEFT, padx=20)
-        
-        # Frame de controles
+
+        # --- TOPO: Métricas rápidas ---
+        top_metrics = tk.Frame(main_frame, bg=self.bg_color)
+        top_metrics.pack(fill=tk.X, pady=10, padx=20)
+
+        self.total_vendas_label = tk.Label(top_metrics, text="Total: R$ 0.00",
+                                           bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.total_vendas_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.media_diaria_label = tk.Label(top_metrics, text="Média diária: R$ 0.00",
+                                           bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.media_diaria_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.maior_venda_label = tk.Label(top_metrics, text="Maior venda: R$ 0.00",
+                                          bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.maior_venda_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        # --- CONTROLES ---
         control_frame = tk.Frame(main_frame, bg=self.bg_color)
         control_frame.pack(fill=tk.X, pady=10, padx=20)
         
@@ -41,7 +51,8 @@ class TelaDashboard:
                 font=('Arial', 10)).grid(row=0, column=0, padx=5)
         
         self.periodo_var = tk.StringVar(value="7")
-        periodos = [("Últimos 7 dias", "7"), 
+        periodos = [("Último dia", "1"),
+                    ("Últimos 7 dias", "7"), 
                    ("Últimos 15 dias", "15"), 
                    ("Últimos 30 dias", "30"),
                    ("Personalizado", "custom")]
@@ -69,35 +80,49 @@ class TelaDashboard:
         tk.Button(control_frame, text="Atualizar Dados", command=self.atualizar_dados,
                  bg=self.button_bg, fg=self.button_fg, font=self.button_font).grid(row=0, column=6, padx=20)
         
-        # Frame para métricas
+        # --- MÉTRICAS DETALHADAS ---
         metrics_frame = tk.Frame(main_frame, bg=self.bg_color)
         metrics_frame.pack(fill=tk.X, pady=10, padx=20)
-        
-        # Métricas (serão atualizadas)
-        self.total_vendas_label = tk.Label(metrics_frame, text="Total: R$ 0.00", 
-                                         bg=self.bg_color, font=('Arial', 14, 'bold'))
-        self.total_vendas_label.pack(side=tk.LEFT, padx=20)
-        
-        self.media_diaria_label = tk.Label(metrics_frame, text="Média diária: R$ 0.00", 
-                                          bg=self.bg_color, font=('Arial', 14, 'bold'))
-        self.media_diaria_label.pack(side=tk.LEFT, padx=20)
-        
-        self.maior_venda_label = tk.Label(metrics_frame, text="Maior venda: R$ 0.00", 
-                                        bg=self.bg_color, font=('Arial', 14, 'bold'))
-        self.maior_venda_label.pack(side=tk.LEFT, padx=20)
-        
-        # Frame para gráficos e tabela
-        data_frame = tk.Frame(main_frame, bg=self.bg_color)
-        data_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-        
-        # Gráfico (esquerda)
-        self.graph_frame = tk.Frame(data_frame, bg='white')
-        self.graph_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-        
-        # Tabela (direita)
-        table_frame = tk.Frame(data_frame, bg=self.bg_color)
-        table_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5)
-        
+
+        self.total_produtos_label = tk.Label(metrics_frame, text="Produtos Vendidos: 0",
+                                             bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.total_produtos_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.despesas_label = tk.Label(metrics_frame, text="Despesas: R$ 0.00",
+                                       bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.despesas_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.lucro_liquido_label = tk.Label(metrics_frame, text="Lucro Líquido: R$ 0.00",
+                                            bg=self.card_bg, fg=self.metric_fg, font=self.metric_font, width=20)
+        self.lucro_liquido_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        # --- ÁREA CENTRAL: GRÁFICOS E TABELA ---
+        center_frame = tk.Frame(main_frame, bg=self.bg_color)
+        center_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+
+        # Frame de gráficos com barra de rolagem (esquerda)
+        graphs_canvas = tk.Canvas(center_frame, bg=self.bg_color, highlightthickness=0)
+        graphs_scrollbar = tk.Scrollbar(center_frame, orient="vertical", command=graphs_canvas.yview)
+        graphs_canvas.configure(yscrollcommand=graphs_scrollbar.set)
+
+        # Use mais espaço para os gráficos, reduzindo o padding lateral
+        graphs_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10), pady=0)
+        graphs_scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+
+        self.graphs_frame = tk.Frame(graphs_canvas, bg=self.bg_color)
+        self.graphs_frame.bind(
+            "<Configure>",
+            lambda e: graphs_canvas.configure(
+                scrollregion=graphs_canvas.bbox("all")
+            )
+        )
+        graphs_canvas.create_window((0, 0), window=self.graphs_frame, anchor="nw", width=700)  # Ajuste a largura conforme necessário
+
+        # Frame de tabela (direita) - ocupa menos espaço
+        table_frame = tk.Frame(center_frame, bg=self.bg_color, width=350)
+        table_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 0), pady=0)
+        table_frame.pack_propagate(False)
+
         # Treeview para mostrar os dados
         self.tree = ttk.Treeview(table_frame, columns=('Data', 'Valor', 'Descrição'), show='headings')
         self.tree.heading('Data', text='Data')
@@ -106,23 +131,35 @@ class TelaDashboard:
         self.tree.column('Data', width=100)
         self.tree.column('Valor', width=100)
         self.tree.column('Descrição', width=200)
-        
+
         scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        
+
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
+        # Remova o botão de alternar tipo de gráfico principal
+        # self.tipo_grafico = tk.StringVar(value="barras")
+        # self.botao_grafico = tk.Button(
+        #     self.graphs_frame,
+        #     text="Mudar para Gráfico de Pizza",
+        #     command=self.alternar_grafico,
+        #     bg=self.button_bg,
+        #     fg=self.button_fg,
+        #     font=('Arial', 10, 'bold')
+        # )
+        # self.botao_grafico.pack(anchor="ne", pady=5, padx=5)
+
         # Inicializa o banco de dados e carrega os dados
         self.conectar_banco_dados()
         self.atualizar_dados()
-        
+
         # Configura datas padrão
         hoje = datetime.now().strftime('%Y-%m-%d')
         self.data_fim_entry.insert(0, hoje)
         semana_passada = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
         self.data_inicio_entry.insert(0, semana_passada)
-    
+
     def conectar_banco_dados(self):
         """Conecta ao banco de dados SQLite"""
         try:
@@ -142,14 +179,15 @@ class TelaDashboard:
                 
                 if data_inicio and data_fim:
                     query = """
-                        SELECT data, valor, descricao 
-                        FROM levantamento 
-                        WHERE data BETWEEN ? AND ?
-                        ORDER BY data DESC
+                        SELECT data_venda, total, observacoes 
+                        FROM vendas 
+
+                        WHERE date(data_venda) BETWEEN ? AND ?
+                        ORDER BY data_venda DESC
                     """
                     cursor.execute(query, (data_inicio, data_fim))
                 else:
-                    query = "SELECT data, valor, descricao FROM levantamento ORDER BY data DESC"
+                    query = "SELECT data_venda, total, observacoes FROM vendas ORDER BY data_venda DESC"
                     cursor.execute(query)
                 
                 return cursor.fetchall()
@@ -169,21 +207,56 @@ class TelaDashboard:
         
         return total, media, maior
     
+    def obter_total_produtos_vendidos(self, data_inicio, data_fim):
+        """Obtém o total de produtos vendidos no período"""
+        try:
+            with DatabaseManager().conectar() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT SUM(iv.quantidade)
+                    FROM itens_venda iv
+                    JOIN vendas v ON iv.venda_id = v.id
+                    WHERE v.data_venda BETWEEN ? AND ?
+                """, (data_inicio, data_fim))
+                resultado = cursor.fetchone()
+                return resultado[0] if resultado[0] else 0
+        except Exception:
+            return 0
+
+    def obter_despesas(self, data_inicio, data_fim):
+        """Obtém o total de despesas no período"""
+        try:
+            with DatabaseManager().conectar() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT SUM(valor) FROM despesas
+                    WHERE data BETWEEN ? AND ?
+                """, (data_inicio, data_fim))
+                resultado = cursor.fetchone()
+                return float(resultado[0]) if resultado[0] else 0.0
+        except Exception:
+            return 0.0
+    
     def atualizar_dados(self):
         """Atualiza os dados exibidos com base nos filtros selecionados"""
+        # Limpa todos os gráficos do frame antes de atualizar os dados
+        for widget in self.graphs_frame.winfo_children():
+            widget.destroy()
+
         periodo = self.periodo_var.get()
         
         if periodo == "custom":
             self.custom_frame.grid(row=1, column=0, columnspan=6, pady=10)
             
+            data_inicio = self.data_inicio_entry.get().strip()
+            data_fim = self.data_fim_entry.get().strip()
+            if not data_inicio or not data_fim:
+                messagebox.showerror("Erro", "Preencha as duas datas no formato YYYY-MM-DD.")
+                return
             try:
-                data_inicio = self.data_inicio_entry.get()
-                data_fim = self.data_fim_entry.get()
-                
-                # Valida as datas
+                # Aceita apenas o formato YYYY-MM-DD
                 datetime.strptime(data_inicio, '%Y-%m-%d')
                 datetime.strptime(data_fim, '%Y-%m-%d')
-                
                 dados = self.obter_dados_vendas(data_inicio, data_fim)
             except ValueError:
                 messagebox.showerror("Erro", "Formato de data inválido. Use YYYY-MM-DD.")
@@ -203,6 +276,15 @@ class TelaDashboard:
         self.total_vendas_label.config(text=f"Total: R$ {total:,.2f}")
         self.media_diaria_label.config(text=f"Média diária: R$ {media:,.2f}")
         self.maior_venda_label.config(text=f"Maior venda: R$ {maior:,.2f}")
+
+        # Novas métricas
+        total_produtos = self.obter_total_produtos_vendidos(data_inicio, data_fim)
+        despesas = self.obter_despesas(data_inicio, data_fim)
+        lucro_liquido = total - despesas
+
+        self.total_produtos_label.config(text=f"Produtos Vendidos: {total_produtos}")
+        self.despesas_label.config(text=f"Despesas: R$ {despesas:,.2f}")
+        self.lucro_liquido_label.config(text=f"Lucro Líquido: R$ {lucro_liquido:,.2f}")
         
         # Atualiza o gráfico
         self.atualizar_grafico(dados, data_inicio, data_fim)
@@ -217,45 +299,129 @@ class TelaDashboard:
             self.tree.insert('', 'end', values=(row[0], valor_formatado, row[2]))
     
     def atualizar_grafico(self, dados, data_inicio, data_fim):
-        """Atualiza o gráfico com os dados fornecidos"""
-        # Limpa o frame do gráfico
-        for widget in self.graph_frame.winfo_children():
-            widget.destroy()
-        
+        """Atualiza os gráficos com os dados fornecidos"""
+        # Limpa o frame de gráficos
+        for widget in self.graphs_frame.winfo_children():
+            if isinstance(widget, FigureCanvasTkAgg):
+                widget.get_tk_widget().destroy()
+            elif isinstance(widget, tk.Label):
+                widget.destroy()
+
         if not dados:
-            tk.Label(self.graph_frame, text="Nenhum dado disponível para o período selecionado", 
-                    bg='white').pack(expand=True)
+            tk.Label(self.graphs_frame, text="Nenhum dado disponível para o período selecionado",
+                     bg=self.bg_color, fg='white').pack(expand=True)
             return
-        
-        # Processa os dados para o gráfico
+
+        # --- GRÁFICO 1: BARRAS ---
         vendas_por_dia = {}
         for data, valor, _ in dados:
             if data in vendas_por_dia:
                 vendas_por_dia[data] += float(valor)
             else:
                 vendas_por_dia[data] = float(valor)
-        
-        # Ordena as datas
+
         datas_ordenadas = sorted(vendas_por_dia.keys())
         valores = [vendas_por_dia[data] for data in datas_ordenadas]
-        
-        # Cria a figura do matplotlib
-        fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
-        
-        # Gráfico de barras
-        ax.bar(datas_ordenadas, valores, color='#4682b4')
-        ax.set_title(f"Vendas por Dia ({data_inicio} a {data_fim})")
-        ax.set_xlabel("Data")
-        ax.set_ylabel("Valor (R$)")
-        ax.tick_params(axis='x', rotation=45)
-        
-        # Formata o eixo Y para mostrar valores em R$
-        ax.yaxis.set_major_formatter('R${x:,.0f}')
-        
-        # Ajusta o layout
+
+        # Aumente o tamanho dos gráficos
+        fig1, ax1 = plt.subplots(figsize=(8, 4), dpi=100)
+        ax1.bar(datas_ordenadas, valores, color='#4682b4')
+        ax1.set_title(f"Vendas por Dia")
+        ax1.set_xlabel("Data")
+        ax1.set_ylabel("Valor (R$)")
+        ax1.tick_params(axis='x', rotation=45)
+        fig1.tight_layout()
+        canvas1 = FigureCanvasTkAgg(fig1, master=self.graphs_frame)
+        canvas1.draw()
+        canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
+
+        # --- GRÁFICO 2: LINHA DE TENDÊNCIA ---
+        datas_formatadas = [d.split()[0] if " " in d else d for d in datas_ordenadas]
+
+        fig2, ax2 = plt.subplots(figsize=(8, 3), dpi=100)
+        ax2.plot(datas_formatadas, valores, marker='o', color='#fbc02d')
+        ax2.set_title("Tendência de Vendas")
+        ax2.set_xlabel("Data")
+        ax2.set_ylabel("Valor (R$)")
+        ax2.tick_params(axis='x', rotation=25)
+        fig2.tight_layout()
+        fig2.autofmt_xdate()
+        canvas2 = FigureCanvasTkAgg(fig2, master=self.graphs_frame)
+        canvas2.draw()
+        canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
+
+        # --- GRÁFICO 3: BARRAS HORIZONTAIS (TOP 5 VENDAS) ---
+        top5 = sorted(zip(datas_ordenadas, valores), key=lambda x: x[1], reverse=True)[:5]
+        if top5:
+            top_datas, top_valores = zip(*top5)
+            fig3, ax3 = plt.subplots(figsize=(8, 2.5), dpi=100)
+            ax3.barh(top_datas, top_valores, color='#8e24aa')
+            ax3.set_title("Top 5 Dias de Venda")
+            ax3.set_xlabel("Valor (R$)")
+            fig3.tight_layout()
+            canvas3 = FigureCanvasTkAgg(fig3, master=self.graphs_frame)
+            canvas3.draw()
+            canvas3.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
+
+        # --- GRÁFICO 4: PIZZA (Distribuição por Forma de Pagamento) ---
+        try:
+            with DatabaseManager().conectar() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT forma_pagamento, SUM(total)
+                    FROM vendas
+                    WHERE date(data_venda) BETWEEN ? AND ?
+                    GROUP BY forma_pagamento
+                """, (data_inicio, data_fim))
+                resultados = cursor.fetchall()
+        except Exception:
+            resultados = []
+
+        if resultados:
+            labels = [row[0] if row[0] else "Desconhecido" for row in resultados]
+            valores_fp = [row[1] for row in resultados]
+            fig4, ax4 = plt.subplots(figsize=(8, 3.5), dpi=100)
+            ax4.pie(valores_fp, labels=labels, autopct='%1.1f%%', startangle=90)
+            ax4.set_title("Distribuição das Vendas por Forma de Pagamento")
+            fig4.tight_layout()
+            canvas4 = FigureCanvasTkAgg(fig4, master=self.graphs_frame)
+            canvas4.draw()
+            canvas4.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
+
+    def alternar_grafico(self):
+        """Alterna entre gráfico de barras e pizza"""
+        if self.tipo_grafico.get() == "barras":
+            self.tipo_grafico.set("pizza")
+            self.botao_grafico.config(text="Mudar para Gráfico de Barras")
+        else:
+            self.tipo_grafico.set("barras")
+            self.botao_grafico.config(text="Mudar para Gráfico de Pizza")
+        self.atualizar_dados()  # Redesenha o gráfico
+
+    def plotar_grafico(self, dados):
+        """Plota o gráfico conforme o tipo selecionado"""
+        # Limpa o frame do gráfico
+        for widget in self.graphs_frame.winfo_children():
+            if isinstance(widget, FigureCanvasTkAgg):
+                widget.get_tk_widget().destroy()
+
+        if not dados:
+            return
+
+        datas = [row[0] for row in dados]
+        valores = [float(row[1]) for row in dados]
+
+        fig, ax = plt.subplots(figsize=(7, 4))
+        if self.tipo_grafico.get() == "barras":
+            ax.bar(datas, valores, color="#4682b4")
+            ax.set_ylabel("Valor (R$)")
+            ax.set_xlabel("Data")
+            ax.set_title("Vendas por Dia")
+        else:
+            ax.pie(valores, labels=datas, autopct='%1.1f%%', startangle=90)
+            ax.set_title("Distribuição das Vendas")
+
         fig.tight_layout()
-        
-        # Converte a figura para um widget Tkinter
-        canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
+        canvas = FigureCanvasTkAgg(fig, master=self.graphs_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)

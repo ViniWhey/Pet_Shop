@@ -4,12 +4,13 @@ import sqlite3
 from database.db_manager import DatabaseManager
 from datetime import datetime
 from tkinter import simpledialog
+from main.main import show_custom_messagebox
 
 class PontoDeVenda:
     def __init__(self, master):
         self.master = master
         self.master.title("PetShop PDV - Sistema de Vendas")
-        self.master.geometry("1400x800")
+        self.master.state('zoomed')  # Maximiza a janela
 
         # 1. Primeiro: Inicialize a conexão com o banco
         self.conn = None
@@ -44,7 +45,7 @@ class PontoDeVenda:
             messagebox.showerror("Erro Fatal", f"Falha na conexão com o banco:\n{str(e)}")
             self.master.destroy()
             raise
-
+    
     def configurar_estilos(self):
         style = ttk.Style()
         style.theme_use('clam')
@@ -78,14 +79,26 @@ class PontoDeVenda:
         # Busca de produtos
         busca_frame = ttk.LabelFrame(top_frame, text="Buscar Produto", padding=10)
         busca_frame.pack(side='right', fill='x')
-        
+
         self.entry_busca = ttk.Entry(busca_frame, width=30)
         self.entry_busca.pack(side='left')
         self.entry_busca.bind('<Return>', lambda e: self.buscar_produtos())
-        
+
         btn_buscar = ttk.Button(busca_frame, text="Buscar", command=self.buscar_produtos)
         btn_buscar.pack(side='left', padx=5)
-        
+
+        # Campo e botão para buscar por código de barras (igual ao buscar produto)
+        self.entry_codigo_barras = ttk.Entry(busca_frame, width=20)
+        self.entry_codigo_barras.pack(side='left', padx=(10, 0))
+        self.entry_codigo_barras.bind('<Return>', lambda e: self.acao_buscar_codigo_barras())
+
+        btn_codigo_barras = ttk.Button(
+            busca_frame,
+            text="Buscar Código Barras",
+            command=self.acao_buscar_codigo_barras
+        )
+        btn_codigo_barras.pack(side='left', padx=5)
+
         # Frame central (produtos e carrinho)
         center_frame = ttk.Frame(main_frame)
         center_frame.pack(fill='both', expand=True)
@@ -210,7 +223,7 @@ class PontoDeVenda:
         self.master.bind('<F4>', lambda e: self.alterar_quantidade())
         self.master.bind('<F5>', lambda e: self.finalizar_venda())
         self.master.bind('<Delete>', lambda e: self.remover_item())
-    
+
     def carregar_produtos(self, filtro=None):
         try:
             self.tree_produtos.delete(*self.tree_produtos.get_children())
@@ -232,23 +245,36 @@ class PontoDeVenda:
             for row in self.cursor.fetchall():
                 # Garante que todos os valores estão corretos
                 row = list(row)
-                row[2] = float(row[2])  # preco
+                row[2] = f"{float(row[2]):.2f}"  # preco formatado com 2 casas decimais
                 row[3] = int(row[3])    # quantidade
-                # Se descricao for None, substitui por string vazia
                 if row[5] is None:
                     row[5] = ""
                 self.tree_produtos.insert('', 'end', values=row[:5])  # Mostra apenas as 5 primeiras colunas
                 
         except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Falha ao carregar produtos:\n{str(e)}")
-    
+
     def carregar_clientes(self):
         self.cursor.execute("SELECT id, nome, cpf FROM clientes ORDER BY nome")
-        self.clientes = self.cursor.fetchall()
-    
+        # Converta cada linha para tupla simples
+        self.clientes = [tuple(row) for row in self.cursor.fetchall()]
+
     def buscar_produtos(self):
         termo = self.entry_busca.get().strip()
         self.carregar_produtos(termo if termo else None)
+
+    def buscar_produto_por_codigo_barras(self, codigo_barras):
+        """Busca um produto pelo código de barras"""
+        try:
+            self.cursor.execute("SELECT id, nome, preco, COALESCE(quantidade, 0) FROM produtos WHERE codigo_barras = ?", (codigo_barras,))
+            produto = self.cursor.fetchone()
+            if produto:
+                return tuple(produto)
+            else:
+                return None
+        except sqlite3.Error as e:
+            messagebox.showerror("Erro", f"Falha ao buscar produto:\n{str(e)}")
+            return None
     
     def selecionar_cliente(self):
         if not hasattr(self, 'clientes'):
@@ -326,12 +352,17 @@ class PontoDeVenda:
             dados = {}
             for campo, entry in entries.items():
                 dados[campo] = entry.get().strip()
-            
+
             if not dados['nome']:
                 messagebox.showwarning("Aviso", "Nome é obrigatório!", parent=top)
                 return
-            
+
+            if not dados['pet']:
+                messagebox.showwarning("Aviso", "Informe o nome do pet!", parent=top)
+                return
+
             try:
+                # Insere cliente
                 self.cursor.execute("""
                     INSERT INTO clientes (nome, pet, cpf, telefone, endereco)
                     VALUES (?, ?, ?, ?, ?)
@@ -339,22 +370,32 @@ class PontoDeVenda:
                     dados['nome'],
                     dados.get('pet', ''),
                     dados.get('cpf'),
-                    dados.get('telefone'),
-                    dados.get('endereço')
+                    dados.get('telefone', ''),
+                    dados.get('endereço', '')
                 ))
-                
                 self.conn.commit()
-                messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!", parent=top)
+                cliente_id = self.cursor.lastrowid
+
+                # Insere pet vinculado ao cliente
+                self.cursor.execute("""
+                    INSERT INTO pets (nome, dono_id)
+                    VALUES (?, ?)
+                """, (
+                    dados['pet'],
+                    cliente_id
+                ))
+                self.conn.commit()
+
+                messagebox.showinfo("Sucesso", "Cliente e pet cadastrados com sucesso!", parent=top)
                 self.carregar_clientes()
                 top.destroy()
-                
+
                 # Seleciona o novo cliente automaticamente
-                cliente_id = self.cursor.lastrowid
                 self.cursor.execute("SELECT nome, cpf FROM clientes WHERE id = ?", (cliente_id,))
                 nome, cpf = self.cursor.fetchone()
                 self.cliente_atual = {'id': cliente_id, 'nome': nome, 'cpf': cpf}
                 self.lbl_cliente.config(text=f"{nome} (CPF: {cpf})")
-                
+
             except sqlite3.IntegrityError:
                 messagebox.showerror("Erro", "CPF já cadastrado!", parent=top)
             except Exception as e:
@@ -400,7 +441,7 @@ class PontoDeVenda:
 
             # Verifica se há estoque suficiente para adicionar o produto novo
             if estoque <= 0:
-                messagebox.showwarning("Estoque insuficiente", f"O produto '{nome}' está sem estoque.")
+                show_custom_messagebox(self.master, "Erro", "Produto sem estoque disponível.", icon="error")
                 return
 
             novo_item = {
@@ -416,7 +457,6 @@ class PontoDeVenda:
 
         except (ValueError, TypeError) as e:
             messagebox.showerror("Erro", f"Dados do produto inválidos: {str(e)}")
-
 
     def corrigir_estoque_nulo(self):
         """Corrige registros com estoque nulo no banco de dados"""
@@ -558,16 +598,21 @@ class PontoDeVenda:
             produto_completo = self.cursor.fetchone()
             
             if produto_completo:
-                messagebox.showinfo(
-                    "Detalhes do Produto",
-                    f"ID: {produto_completo[0]}\n"
-                    f"Nome: {produto_completo[1]}\n"
-                    f"Preço: R$ {float(produto_completo[2]):.2f}\n"
-                    f"Estoque: {int(produto_completo[3])}\n"
-                    f"Categoria: {produto_completo[4]}\n\n"
-                    f"Descrição:\n{produto_completo[5]}",
-                    parent=self.master
+                nome = produto_completo[1]
+                preco = float(produto_completo[2])
+                estoque = int(produto_completo[3])
+                categoria = produto_completo[4]
+                descricao = produto_completo[5]
+                
+                detalhes = (
+                    f"ID: {produto_id}\n"
+                    f"Nome: {nome}\n"
+                    f"Preço: R$ {preco:.2f}\n"
+                    f"Estoque: {estoque}\n"
+                    f"Categoria: {categoria}\n\n"
+                    f"Descrição:\n{descricao if descricao else 'Sem descrição cadastrada'}"
                 )
+                show_custom_messagebox(self.master, "Detalhes do Produto", detalhes, icon="info")
             else:
                 messagebox.showerror("Erro", "Produto não encontrado no banco de dados.")
                 
@@ -779,3 +824,39 @@ class PontoDeVenda:
             "(Implemente a lógica de impressão conforme necessário)",
             parent=janela
         )
+
+    def acao_buscar_codigo_barras(self):
+        codigo = self.entry_codigo_barras.get().strip()
+        if not codigo:
+            messagebox.showwarning("Aviso", "Digite o código de barras.")
+            return
+        produto = self.buscar_produto_por_codigo_barras(codigo)
+        # Limpa o campo após a busca
+        self.entry_codigo_barras.delete(0, 'end')
+        if produto:
+            # produto = (id, nome, preco, quantidade)
+            produto_id, nome, preco, estoque = produto
+
+            # Verifica se já está no carrinho
+            for item in self.carrinho:
+                if item['id'] == produto_id:
+                    # Incrementa quantidade se possível
+                    if estoque > 0 and item['quantidade'] < estoque:
+                        item['quantidade'] += 1
+                        self.atualizar_carrinho()
+                        return
+                    else:
+                        messagebox.showwarning("Estoque", "Quantidade máxima em estoque atingida.")
+                        return
+
+            # Se não está no carrinho, adiciona
+            self.carrinho.append({
+                'id': produto_id,
+                'nome': nome,
+                'preco': preco,
+                'quantidade': 1,
+                'estoque': estoque
+            })
+            self.atualizar_carrinho()
+        else:
+            messagebox.showinfo("Não encontrado", "Produto não encontrado para este código de barras.")

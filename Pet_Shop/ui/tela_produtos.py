@@ -42,86 +42,76 @@ class TelaProdutos:
                 background=[('active', '#e1e1e1')])  
 
     def criar_widgets(self):
-        
         # Frame do formulário (FIXO no topo)
-        frame_form = tk.Frame(self.master, bd=2, relief=tk.GROOVE, padx=10, pady=10)
+        frame_form = tk.Frame(self.master, bd=2, relief=tk.GROOVE, padx=10, pady=5)
         frame_form.pack(fill=tk.X, padx=5, pady=5)
-        
-        # Campos de entrada
-        tk.Label(frame_form, text="codigo de barras:").grid(row=0, column=0, sticky='e')
-        self.entry_codigo_barras = tk.Entry(frame_form, width=45)
-        self.entry_codigo_barras.grid(row=0, column=1, padx=5)
 
-        tk.Label(frame_form, text="Nome do Produto:").grid(row=0, column=1, sticky='e') 
-        self.entry_nome = tk.Entry(frame_form, width=30)
-        self.entry_nome.grid(row=0, column=2, padx=5)
-        
-        tk.Label(frame_form, text="Preço:").grid(row=0, column=2, sticky='e')
-        self.entry_preco = tk.Entry(frame_form, width=10)
-        self.entry_preco.grid(row=0, column=3, padx=5)
-        
-        tk.Label(frame_form, text="Quantidade:").grid(row=0, column=4, sticky='e')
-        self.entry_quantidade = tk.Entry(frame_form, width=10)
-        self.entry_quantidade.grid(row=0, column=5, padx=5)
-        
-        # Configurar expansão das colunas
-        frame_form.columnconfigure(1, weight=1)
-        
-        #buscar produtos
-        tk.Label(frame_form, text="Buscar:").grid(row=0, column=7, sticky='e')
-        self.entry_busca = tk.Entry(frame_form, width=20)
-        self.entry_busca.grid(row=0, column=8, padx=5)
-        
+        # Linha única para todos os campos
+        tk.Label(frame_form, text="Código de Barras:").grid(row=0, column=0, sticky='e', padx=(0,2))
+        self.entry_codigo_barras = tk.Entry(frame_form)
+        self.entry_codigo_barras.grid(row=0, column=1, padx=(0,8), sticky="ew")
+
+        tk.Label(frame_form, text="Nome:").grid(row=0, column=2, sticky='e', padx=(0,2))
+        self.entry_nome = tk.Entry(frame_form)
+        self.entry_nome.grid(row=0, column=3, padx=(0,8), sticky="ew")
+
+        tk.Label(frame_form, text="Preço:").grid(row=0, column=4, sticky='e', padx=(0,2))
+        self.entry_preco = tk.Entry(frame_form)
+        self.entry_preco.grid(row=0, column=5, padx=(0,8), sticky="ew")
+
+        tk.Label(frame_form, text="Qtd:").grid(row=0, column=6, sticky='e', padx=(0,2))
+        self.entry_quantidade = tk.Entry(frame_form)
+        self.entry_quantidade.grid(row=0, column=7, padx=(0,8), sticky="ew")
+
+        self.btn_salvar = tk.Button(frame_form, text="Salvar", command=self.salvar_produto, bg="#4CAF50", fg="white")
+        self.btn_salvar.grid(row=0, column=8, padx=(0,8))
+
+        # Campo de busca à direita
+        tk.Label(frame_form, text="Buscar:").grid(row=0, column=9, sticky='e', padx=(0,2))
+        self.entry_busca = tk.Entry(frame_form)
+        self.entry_busca.grid(row=0, column=10, padx=(0,2), sticky="ew")
         self.btn_buscar = tk.Button(frame_form, text="Buscar", command=self.buscar_produtos)
-        self.btn_buscar.grid(row=0, column=9, padx=5)
-        
-        # Configurar expansão das colunas
-        frame_form.columnconfigure(8, weight=1)  # Expande a coluna de busca
-        frame_form.columnconfigure(9, weight=0)  # Não expande o botão de busca
-        
-        # Botão Salvar (será reconfigurado durante edição)
-        self.btn_salvar = tk.Button(frame_form, text="salvar", command=self.salvar_produto)
-        self.btn_salvar.grid(row=0, column=6, padx=10)    
+        self.btn_buscar.grid(row=0, column=11, padx=(0,2))
 
-        # (com IDs):
+        # Expansão das colunas para melhor ajuste
+        for i in range(12):
+            frame_form.columnconfigure(i, weight=0)
+        frame_form.columnconfigure(1, weight=1)   # Código de Barras
+        frame_form.columnconfigure(3, weight=2)   # Nome (maior)
+        frame_form.columnconfigure(5, weight=1)   # Preço
+        frame_form.columnconfigure(7, weight=1)   # Qtd
+        frame_form.columnconfigure(10, weight=1)  # Buscar
+
+        # Treeview (Tabela de produtos)
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "codigo_barras", "Nome", "Preco", "Quantidade"),  # Adicionada coluna ID
-            show="headings"  # Mostra os cabeçalhos
+            columns=("ID", "codigo_barras", "Nome", "Preco", "Quantidade"),
+            show="headings"
         )
-        
-        # Configurar largura das colunas
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
-
-        # Configurar cabeçalhos (nomes das colunas)
         self.tree.heading("ID", text="ID")
         self.tree.heading("codigo_barras", text="Código de Barras")
         self.tree.heading("Nome", text="Nome")
         self.tree.heading("Preco", text="Preço")
         self.tree.heading("Quantidade", text="Quantidade")
-
-        # Configurar largura da coluna ID (opcional)
-        self.tree.column("ID", width=50, stretch=False)  # Largura fixa de 50 pixels
-        self.tree.column("codigo_barras", width=75, stretch=True)  # Largura expansível
+        self.tree.column("ID", width=50, stretch=False)
+        self.tree.column("codigo_barras", width=100, stretch=True)
         self.tree.column("Nome", width=200, stretch=True)
-        self.tree.column("Preco", width=100, stretch=False)  # Largura fixa de 100 pixels
+        self.tree.column("Preco", width=100, stretch=False)
         self.tree.column("Quantidade", width=100, stretch=False)
+        self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
 
-        self.tree.pack(fill=tk.BOTH, expand=True)
-
-    # Botões de ação
+        # Botões de ação
         frame_botoes = tk.Frame(self.master)
         frame_botoes.pack(pady=5)
-        
         btn_editar = tk.Button(
-            frame_botoes, 
-            text="Editar", 
+            frame_botoes,
+            text="Editar",
             command=self.editar_produto,
             bg="#2196F3", fg="white"
         )
         btn_excluir = tk.Button(
-            frame_botoes, 
-            text="Excluir", 
+            frame_botoes,
+            text="Excluir",
             command=self.excluir_produto,
             bg="#F44336", fg="white"
         )
@@ -242,15 +232,16 @@ class TelaProdutos:
                 self.tree.insert("", tk.END, values=("Nenhum produto cadastrado", "", "", "", ""))
             else:
                 for produto in produtos:
-                    # Converte para tupla explícita, se necessário
-                    self.tree.insert("", tk.END, values=tuple(produto))
+                    # Formata o preço com duas casas decimais
+                    id_, codigo_barras, nome, preco, quantidade = produto
+                    preco_formatado = f"{preco:.2f}"
+                    self.tree.insert("", tk.END, values=(id_, codigo_barras, nome, preco_formatado, quantidade))
 
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao carregar produtos:\n{str(e)}")
         finally:
             if 'conn' in locals():
                 conn.close()
-
 
     def validar_preco(self, preco_str):
         try:
@@ -316,4 +307,7 @@ class TelaProdutos:
             self.tree.delete(item)
 
         for linha in resultados:
-            self.tree.insert("", "end", values=linha)
+            # Formata o preço com duas casas decimais
+            id_, codigo_barras, nome, preco, quantidade = linha
+            preco_formatado = f"{preco:.2f}"
+            self.tree.insert("", "end", values=(id_, codigo_barras, nome, preco_formatado, quantidade))

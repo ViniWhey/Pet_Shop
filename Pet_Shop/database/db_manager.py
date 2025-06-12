@@ -49,16 +49,6 @@ class DatabaseManager:
                     data_cadastro TEXT DEFAULT CURRENT_TIMESTAMP
                 )""",
                 
-            'levantamento': """
-                CREATE TABLE IF NOT EXISTS levantamento (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    data TEXT NOT NULL,
-                    valor REAL NOT NULL,
-                    descricao TEXT,
-                    cliente_id INTEGER,
-                    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-                )""",
-                
             'pets': """
                 CREATE TABLE IF NOT EXISTS pets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +119,17 @@ class DatabaseManager:
                 print(f"Erro ao criar tabela {nome}: {str(e)}")
         conn.commit()
 
+    
+    def buscar_produto_por_codigo_barras(self, codigo_barras: str) -> Optional[sqlite3.Row]:
+        """Busca um produto pelo código de barras"""
+        with self.conectar() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM produtos WHERE codigo_barras = ?",
+                (codigo_barras,)
+            )
+            return cursor.fetchone()
+    
     def backup(self, backup_path: Optional[str] = None) -> str:
         """Cria um backup do banco de dados"""
         backup_path = backup_path or str(Path(self.db_path).with_suffix('.bak.db'))

@@ -7,11 +7,12 @@ from pathlib import Path
 
 class TelaProdutos:
     def __init__(self, master):
-        self.master = master
+        self.master = master  # Salva o master
         self.master.title("ESTOQUE DE PRODUTOS")
-        self.master.geometry("1100x600")
+        self.master.geometry("1120x600")
         self.configurar_estilos()
         self.criar_widgets()
+        self.conn = DatabaseManager().conectar()  # Conecta ao banco de dados
         self.carregar_produtos()
         
     def configurar_estilos(self):
@@ -85,38 +86,86 @@ class TelaProdutos:
         # Treeview (Tabela de produtos)
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "codigo_barras", "Nome", "Preco", "Quantidade"),
+            columns=("id", "codigo", "nome", "preco", "quantidade", "valor_pago"),
             show="headings"
         )
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("codigo_barras", text="Código de Barras")
-        self.tree.heading("Nome", text="Nome")
-        self.tree.heading("Preco", text="Preço")
-        self.tree.heading("Quantidade", text="Quantidade")
-        self.tree.column("ID", width=50, stretch=False)
-        self.tree.column("codigo_barras", width=100, stretch=True)
-        self.tree.column("Nome", width=200, stretch=True)
-        self.tree.column("Preco", width=100, stretch=False)
-        self.tree.column("Quantidade", width=100, stretch=False)
+        self.tree.heading("id", text="ID")
+        self.tree.heading("codigo", text="Código de Barras")
+        self.tree.heading("nome", text="Nome")
+        self.tree.heading("preco", text="Preço")
+        self.tree.heading("quantidade", text="Quantidade")
+        self.tree.heading("valor_pago", text="Valor Pago")
+        self.tree.column("id", width=50, stretch=False)
+        self.tree.column("codigo", width=120)
+        self.tree.column("nome", width=120)
+        self.tree.column("preco", width=80)
+        self.tree.column("quantidade", width=80)
+        self.tree.column("valor_pago", width=100)
         self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
 
-        # Botões de ação
-        frame_botoes = tk.Frame(self.master)
-        frame_botoes.pack(pady=5)
-        btn_editar = tk.Button(
-            frame_botoes,
-            text="Editar",
-            command=self.editar_produto,
-            bg="#2196F3", fg="white"
+        # Novos campos para Valor Pago
+        self.valor_pago_label = tk.Label(self.master, text="Valor Pago:")
+        self.valor_pago_label.place(x=650, y=10)  # ajuste as coordenadas
+        self.valor_pago_entry = tk.Entry(self.master)
+        self.valor_pago_entry.place(x=720, y=10)  # ajuste as coordenadas
+
+        # Ajuste de posições e tamanhos
+        self.frame_top = tk.Frame(self.master)
+        self.frame_top.place(x=0, y=0, relwidth=1, height=40)
+
+        self.codigo_label = tk.Label(self.frame_top, text="Código de Barras:")
+        self.codigo_label.place(x=10, y=10, width=100)
+        self.codigo_entry = tk.Entry(self.frame_top)
+        self.codigo_entry.place(x=110, y=10, width=80)
+
+        self.nome_label = tk.Label(self.frame_top, text="Nome:")
+        self.nome_label.place(x=200, y=10, width=50)
+        self.nome_entry = tk.Entry(self.frame_top)
+        self.nome_entry.place(x=250, y=10, width=80)
+
+        self.preco_label = tk.Label(self.frame_top, text="Preço:")
+        self.preco_label.place(x=340, y=10, width=50)
+        self.preco_entry = tk.Entry(self.frame_top)
+        self.preco_entry.place(x=390, y=10, width=60)
+
+        self.qtd_label = tk.Label(self.frame_top, text="Qtd:")
+        self.qtd_label.place(x=460, y=10, width=40)
+        self.qtd_entry = tk.Entry(self.frame_top)
+        self.qtd_entry.place(x=500, y=10, width=40)
+
+        self.valor_pago_label = tk.Label(self.frame_top, text="Valor Pago:")
+        self.valor_pago_label.place(x=550, y=10, width=70)
+        self.valor_pago_entry = tk.Entry(self.frame_top)
+        self.valor_pago_entry.place(x=620, y=10, width=60)
+
+        self.salvar_btn = tk.Button(self.frame_top, text="Salvar", command=self.salvar_produto)
+        self.salvar_btn.place(x=690, y=10, width=60, height=25)
+
+        self.limpar_valores_pagos_btn = tk.Button(self.frame_top, text="Limpar Valores Pagos", command=self.limpar_valores_pagos)
+        self.limpar_valores_pagos_btn.place(x=760, y=10, width=130, height=25)
+
+        self.buscar_label = tk.Label(self.frame_top, text="Buscar:")
+        self.buscar_label.place(x=900, y=10, width=50)
+        self.buscar_entry = tk.Entry(self.frame_top)
+        self.buscar_entry.place(x=950, y=10, width=80)
+        self.buscar_btn = tk.Button(self.frame_top, text="Buscar", command=self.buscar_produtos)
+        self.buscar_btn.place(x=1040, y=10, width=60, height=25)
+
+        # Crie o frame de botões centralizado na parte inferior
+        self.frame_botoes = tk.Frame(self.master)
+        self.frame_botoes.pack(side=tk.BOTTOM, pady=10)
+
+        # Botão Editar (azul)
+        self.editar_btn = tk.Button(
+            self.frame_botoes, text="Editar", bg="#2196F3", fg="white", width=10, command=self.editar_produto
         )
-        btn_excluir = tk.Button(
-            frame_botoes,
-            text="Excluir",
-            command=self.excluir_produto,
-            bg="#F44336", fg="white"
+        self.editar_btn.pack(side=tk.LEFT, padx=10)
+
+        # Botão Excluir (vermelho)
+        self.excluir_btn = tk.Button(
+            self.frame_botoes, text="Excluir", bg="#F44336", fg="white", width=10, command=self.excluir_produto
         )
-        btn_editar.pack(side=tk.LEFT, padx=5)
-        btn_excluir.pack(side=tk.LEFT, padx=5)    
+        self.excluir_btn.pack(side=tk.LEFT, padx=10)
 
     def salvar_produto(self):
         """Salva ou atualiza um produto (adaptado para pegar valores dos campos)"""
@@ -251,30 +300,21 @@ class TelaProdutos:
             return False
 
     def excluir_produto(self):
-        """Remove o produto selecionado"""
-        selecionado = self.tree.selection()
-        if not selecionado:
-            messagebox.showwarning("Aviso", "Selecione um produto!")
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Aviso", "Selecione um produto para excluir.")
             return
-            
-        if not messagebox.askyesno("Confirmar", "Excluir este produto permanentemente?"):
-            return
-            
+        item = self.tree.item(selected[0])
+        produto_id = item['values'][0]  # Supondo que o ID seja o primeiro valor
         try:
-            item_id = self.tree.item(selecionado)['values'][0]
-            db = DatabaseManager()
-            conn = db.conectar()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM produtos WHERE id=?", (item_id,))
-            conn.commit()
-            self.carregar_produtos()
-            messagebox.showinfo("Sucesso", "Produto excluído!")
-        except Exception as e:
+            self.conn.execute("DELETE FROM ITENS_VENDA WHERE produto_id = ?", (produto_id,))
+            self.conn.execute("DELETE FROM produtos WHERE id = ?", (produto_id,)) 
+            self.conn.commit()
+            self.tree.delete(selected[0])
+            messagebox.showinfo("Sucesso", "Produto excluído com sucesso!")
+        except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Falha ao excluir:\n{str(e)}")
-        finally:
-            if 'conn' in locals():
-                conn.close()
-    
+
     def limpar_campos(self):
         for entry in [self.entry_codigo_barras,
                     self.entry_nome,
@@ -287,13 +327,13 @@ class TelaProdutos:
         termo = self.entry_busca.get().strip()
         if termo:
             query = """
-            SELECT id, codigo_barras, nome, preco, quantidade
+            SELECT id, codigo_barras, nome, preco, quantidade, valor_pago
             FROM produtos
             WHERE nome LIKE ? OR codigo_barras LIKE ?
             """
             params = (f'%{termo}%', f'%{termo}%')
         else:
-            query = "SELECT id, codigo_barras, nome, preco, quantidade FROM produtos"
+            query = "SELECT id, codigo_barras, nome, preco, quantidade, valor_pago FROM produtos"
             params = ()
 
         caminho_db = Path(__file__).resolve().parent.parent / "database" / "petshop.db"
@@ -310,4 +350,14 @@ class TelaProdutos:
             # Formata o preço com duas casas decimais
             id_, codigo_barras, nome, preco, quantidade = linha
             preco_formatado = f"{preco:.2f}"
-            self.tree.insert("", "end", values=(id_, codigo_barras, nome, preco_formatado, quantidade))
+            valor_pago = self.valor_pago_entry.get() if self.valor_pago_entry.get() else ""
+            self.tree.insert("", "end", values=(id_, codigo_barras, nome, preco_formatado, quantidade, valor_pago))
+
+    def limpar_valores_pagos(self):
+        for item in self.tree.get_children():
+            valores = list(self.tree.item(item, "values"))
+            # Garante que a lista tem 6 elementos (ID, codigo, nome, preco, quantidade, valor_pago)
+            while len(valores) < 6:
+                valores.append("")
+            valores[5] = ""  # índice da coluna "Valor Pago"
+            self.tree.item(item, values=valores)

@@ -65,6 +65,7 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome TEXT NOT NULL,
                     preco REAL NOT NULL,
+                    valor_pago REAL NOT NULL,
                     quantidade INTEGER NOT NULL DEFAULT 0,
                     categoria TEXT,
                     descricao TEXT,

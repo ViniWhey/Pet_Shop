@@ -163,13 +163,16 @@ class TelaDashboard:
     def conectar_banco_dados(self):
         """Conecta ao banco de dados SQLite"""
         try:
-            self.conn = sqlite3.connect('petshop.db')
+            self.conn = DatabaseManager().conectar()
+            self.cursor = self.conn.cursor()
+
+            if not self.cursor:
+                raise sqlite3.Error("Falha ao criar cursor")
 
         except sqlite3.Error as e:
-            messagebox.showerror("Erro de Banco de Dados", f"Não foi possível conectar ao banco de dados:\n{str(e)}")
+            messagebox.showerror("Erro Fatal", f"Falha na conexão com o banco:\n{str(e)}")
             self.master.destroy()
-        
-        self.conn.commit()
+            raise
     
     def obter_dados_vendas(self, data_inicio=None, data_fim=None):
         """Obtém os dados de vendas do banco de dados para o período especificado"""

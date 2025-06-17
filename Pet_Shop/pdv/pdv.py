@@ -636,6 +636,7 @@ class PontoDeVenda:
             for item in self.carrinho
         )
         
+        # Exibe confirmação usando uma janela Toplevel estilizada (designer mais moderno)
         msg = (
             f"Cliente: {self.cliente_atual['nome'] if self.cliente_atual else 'Não informado'}\n"
             f"Total: R$ {total:.2f}\n"
@@ -643,6 +644,40 @@ class PontoDeVenda:
             "Itens:\n" + resumo + "\n\n"
             "Confirmar venda?"
         )
+
+        def confirmar_moderno():
+            top = tk.Toplevel(self.master)
+            top.title("Confirmar Venda")
+            top.transient(self.master)
+            top.grab_set()
+            top.geometry("420x350")
+            top.resizable(False, False)
+            style = ttk.Style(top)
+            style.theme_use('clam')
+            style.configure('Modern.TLabel', font=('Segoe UI', 11))
+            style.configure('Modern.TButton', font=('Segoe UI', 10, 'bold'), foreground='white', background='#4CAF50')
+            frame = ttk.Frame(top, padding=20)
+            frame.pack(fill='both', expand=True)
+            ttk.Label(frame, text="Confirmação de Venda", font=('Segoe UI', 14, 'bold')).pack(pady=(0, 10))
+            txt = tk.Text(frame, wrap='word', height=10, font=('Segoe UI', 10), bg='#f8f8f8', relief='flat', borderwidth=0)
+            txt.insert('1.0', msg)
+            txt.config(state='disabled')
+            txt.pack(fill='both', expand=True, pady=5)
+            btns = ttk.Frame(frame)
+            btns.pack(pady=10)
+            result = {'ok': False}
+            def ok():
+                result['ok'] = True
+                top.destroy()
+            def cancelar():
+                top.destroy()
+            ttk.Button(btns, text="Confirmar", style='Modern.TButton', command=ok).pack(side='left', padx=10)
+            ttk.Button(btns, text="Cancelar", command=cancelar).pack(side='left')
+            self.master.wait_window(top)
+            return result['ok']
+
+        if not confirmar_moderno():
+            return
         
         if not messagebox.askyesno("Confirmar Venda", msg, parent=self.master):
             return
@@ -860,3 +895,28 @@ class PontoDeVenda:
             self.atualizar_carrinho()
         else:
             messagebox.showinfo("Não encontrado", "Produto não encontrado para este código de barras.")
+
+def avisar_clientes_para_contato(self):
+        """
+        Exibe um aviso para o comerciante com a lista de clientes que fizeram compras há exatos 30 dias,
+        sugerindo entrar em contato para incentivar nova compra.
+        """
+        try:
+            # Busca clientes que compraram há exatamente 30 dias
+            self.cursor.execute("""
+                SELECT DISTINCT c.nome, c.cpf, v.data_venda
+                FROM vendas v
+                JOIN clientes c ON v.cliente_id = c.id
+                WHERE date(v.data_venda) = date('now', '-30 days')
+            """)
+            clientes = self.cursor.fetchall()
+
+            if clientes:
+                aviso = "Clientes que compraram há 30 dias (sugestão: entrar em contato):\n\n"
+                for nome, cpf, data in clientes:
+                    aviso += f"{nome} (CPF: {cpf}) - Data da compra: {data}\n"
+                messagebox.showinfo("Sugestão de Contato", aviso)
+            else:
+                messagebox.showinfo("Sugestão de Contato", "Nenhum cliente fez compra há exatos 30 dias.")
+        except sqlite3.Error as e:
+            messagebox.showerror("Erro", f"Falha ao buscar clientes para contato:\n{str(e)}")

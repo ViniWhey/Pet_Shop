@@ -70,7 +70,7 @@ class TelaProdutos:
         # Botão Salvar/Atualizar
 
         self.btn_salvar = tk.Button(frame_form, text="Salvar(F2)", command=self.salvar_produto, bg="#4CAF50", fg="white")
-        self.btn_salvar.grid(row=0, column=10, padx=(0,8))
+        self.btn_salvar.grid(row=0, column=10, padx=(10), sticky="ew")
 
         # Expansão das colunas para melhor ajuste
         for i in range(13):
@@ -78,7 +78,7 @@ class TelaProdutos:
         frame_form.columnconfigure(1, weight=1)   # Código de Barras
         frame_form.columnconfigure(3, weight=2)   # Nome (maior)
         frame_form.columnconfigure(5, weight=1)   # Preço
-        frame_form.columnconfigure(7, weight=1)   # Qtd
+        frame_form.columnconfigure(7, weight=1)   # Qtdw
         frame_form.columnconfigure(9, weight=1)   # Valor Pago
         frame_form.columnconfigure(10, weight=1)   # Botão Salvar
         frame_form.columnconfigure(10, weight=1)  # Buscar
@@ -135,6 +135,15 @@ class TelaProdutos:
         self.master.bind('<F2>', lambda e: self.salvar_produto())
         self.master.bind('<F3>', lambda e: self.editar_produto())
         self.master.bind('<Delete>', lambda e: self.excluir_produto())
+        self.master.bind('<Return>', lambda e: self.atualizar_produto(item_id=self.get_selected_item_id()))
+
+    def get_selected_item_id(self):
+        """Retorna o ID do item selecionado na Treeview, ou None se nada estiver selecionado."""
+        selected = self.tree.selection()
+        if selected:
+            item = self.tree.item(selected[0])
+            return item['values'][0]
+
 
     def salvar_produto(self):
         try:
@@ -152,7 +161,7 @@ class TelaProdutos:
                 return
 
             try:
-                preco_input = float(preco_str)
+                preco = float(preco_str)
                 valor_pago = float(valor_pago_str)
             except ValueError:
                 messagebox.showerror("Erro", "Preço e Valor Pago devem ser números válidos.")
@@ -164,22 +173,12 @@ class TelaProdutos:
             conn = db.conectar()
             cursor = conn.cursor()
 
-            if self.btn_salvar['text'] == "Atualizar":
-                item_id = self.tree.item(self.tree.selection())['values'][0]
-                cursor.execute(
-                    "UPDATE produtos SET codigo_barras=?, nome=?, preco=?, quantidade=?, valor_pago=? WHERE id=?",
-                    (codigo_barras, nome, preco_input, quantidade, valor_pago, item_id)
-                )
-                msg = "Produto atualizado!"
-            else:
-                cursor.execute(
-                    "INSERT INTO produtos (codigo_barras, nome, preco, quantidade, valor_pago) VALUES (?, ?, ?, ?, ?)",
-                    (codigo_barras, nome, preco_input, quantidade, valor_pago)
-                )
-                msg = "Produto adicionado!"
-
+            cursor.execute(
+                "INSERT INTO produtos (codigo_barras, nome, preco, quantidade, valor_pago) VALUES (?, ?, ?, ?, ?)",
+                (codigo_barras, nome, preco, quantidade, valor_pago)
+            )
             conn.commit()
-            messagebox.showinfo("Sucesso", msg)
+            messagebox.showinfo("Sucesso", "Produto adicionado!")
             self.carregar_produtos()
             self.limpar_campos()
 
@@ -192,36 +191,48 @@ class TelaProdutos:
                 conn.close()
 
     def atualizar_produto(self, item_id):
-        if not self.validar_preco(self.entry_preco.get()):
-            return
-
-        conn = None
         try:
+            codigo_barras = self.entry_codigo_barras.get().strip()
+            nome = self.entry_nome.get().strip()
+            preco_input = self.entry_preco.get().strip()
+            quantidade_input = self.entry_quantidade.get().strip()
+            valor_pago_input = self.valor_pago_entry.get().strip()
+
+            preco_str = preco_input.replace(',', '.')
+            valor_pago_str = valor_pago_input.replace(',', '.')
+
+            if not codigo_barras or not nome or not preco_input or not quantidade_input or not valor_pago_input:
+                messagebox.showerror("Erro", "Preencha todos os campos obrigatórios.")
+                return
+
+            try:
+                preco = float(preco_str)
+                valor_pago = float(valor_pago_str)
+            except ValueError:
+                messagebox.showerror("Erro", "Preço e Valor Pago devem ser números válidos.")
+                return
+
+            quantidade = int(quantidade_input) if quantidade_input.isdigit() else 0
+
             db = DatabaseManager()
             conn = db.conectar()
             cursor = conn.cursor()
+
             cursor.execute(
-                "UPDATE produtos SET nome=?, preco=?, quantidade=?, valor_pago=? WHERE id=?",
-                (
-                    self.entry_nome.get(),
-                    float(self.entry_preco.get()),
-                    int(self.entry_quantidade.get()),
-                    float(self.valor_pago_entry.get()),
-                    item_id
-                )
+                "UPDATE produtos SET codigo_barras=?, nome=?, preco=?, quantidade=?, valor_pago=? WHERE id=?",
+                (codigo_barras, nome, preco, quantidade, valor_pago, item_id)
             )
             conn.commit()
             messagebox.showinfo("Sucesso", "Produto atualizado!")
-
-            # Restaurar estado padrão
-            self.btn_salvar.config(command=self.salvar_produto, text="Salvar")
-            self.limpar_campos()
             self.carregar_produtos()
+            self.limpar_campos()
 
+        except ValueError as ve:
+            messagebox.showerror("Erro", f"Dados inválidos:\n{str(ve)}")
         except Exception as e:
-            messagebox.showerror("Erro", f"Falha ao atualizar: {str(e)}")
+            messagebox.showerror("Erro", f"Falha ao atualizar:\n{str(e)}")
         finally:
-            if conn:
+            if 'conn' in locals():
                 conn.close()
 
     def editar_produto(self):
@@ -243,7 +254,9 @@ class TelaProdutos:
 
             # Altera o botão para "Atualizar"
             self.btn_salvar.config(
-                text="Atualizar",
+                text="Atualizar(Enter)",
+                bg="#2196F3",  # Azul para atualizar
+                fg="white",
                 command=lambda: self.atualizar_produto(dados[0])  # Passa o ID
             )
 
@@ -339,7 +352,10 @@ class TelaProdutos:
             # Formata o preço com duas casas decimais
             id_, codigo_barras, nome, preco, quantidade, valor_pago = linha
             preco_formatado = f"{preco:.2f}"
-            self.tree.insert("", "end", values=(id_, codigo_barras, nome, preco_formatado, quantidade, valor_pago))
+            pago_formatado = f"{valor_pago:.2f}" if valor_pago is not None else "0.00"
+            # Aplica tag vermelha se quantidade <= 5
+            tags = ("baixo_estoque",) if isinstance(quantidade, int) and quantidade <= 5 else ()
+            self.tree.insert("", "end", values=(id_, codigo_barras, nome, preco_formatado, quantidade, pago_formatado), tags=tags)
 
     def limpar_valores_pagos(self):
         for item in self.tree.get_children():
